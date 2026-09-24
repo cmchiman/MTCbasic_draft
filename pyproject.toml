@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtc-issuance-log"
+version = "0.2.0"
+description = "Merkle Tree Certificates work package A: Merkle Tree / Subtree / Issuance Log Core for draft-davidben-tls-merkle-tree-certs-10"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["Merkle Tree Certificates", "MTC", "RFC9162", "issuance log", "transparency"]
+dependencies = []
+
+[project.optional-dependencies]
+# Only the DER cross-check tests use a third party library; the core library,
+# the log core and the rest of the test suite are stdlib only.
+dev = ["cryptography>=41"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/mtc"]

@@ -1,0 +1,39 @@
+# Python byte code and caches
+__pycache__/
+*.py[cod]
+*.pyo
+
+# virtual environments
+.venv/
+venv/
+env/
+
+# packaging / build outputs
+build/
+dist/
+*.egg-info/
+
+# test / lint / type check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDE / editor state
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# local benchmark and log output
+bench.csv
+bench.json
+bench_*.csv
+bench_*.json
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
