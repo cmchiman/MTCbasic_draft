@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from mtc.common.errors import EncodingError
-from mtc.common.types import HashValue
+from mtc.core.errors import EncodingError
+from mtc.core.types import HashValue
 from mtc.merkle.hash import (
     INTERNAL_PREFIX,
     LEAF_PREFIX,

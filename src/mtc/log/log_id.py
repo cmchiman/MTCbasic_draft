@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from ..common.errors import DecodeError, EncodingError
+from ..core.errors import DecodeError, EncodingError
 from ..encoding.der import decode_arcs, decode_oid, encode_arcs, encode_oid
 
 #: Attribute type OID used by early implementations.

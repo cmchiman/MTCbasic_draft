@@ -82,7 +82,7 @@ mtc-python/
 
 ```
 src/mtc/
-  common/     types.py（冻结公共类型） errors.py（统一错误模型）
+  core/       types.py（冻结公共类型） errors.py（统一错误模型）
   encoding/   der.py（X.690） asn1.py（Name/Validity/Extension/SPKI） tls.py（RFC8446 §3）
   merkle/     hash.py tree.py subtree.py proof.py consistency.py interval.py
   log/        parameters.py log_id.py entry.py issuance_log.py storage.py publish.py pruning.py
@@ -92,8 +92,8 @@ docs/         A_IssuanceLogCore.md  OPEN_SPEC_QUESTIONS.md
 tools/        bench_merkle_log.py
 ```
 
-逻辑分层与提示词要求的 `src/{merkle,log,encoding,common}` 一一对应，只是在
-`src/` 下多包了一层 `mtc` 命名空间，避免 `log`、`common`、`merkle` 这类通用包名
+逻辑分层与提示词要求的 `src/{merkle,log,encoding,core}` 一一对应，只是在
+`src/` 下多包了一层 `mtc` 命名空间，避免 `log`、`core`、`merkle` 这类通用包名
 污染 site-packages。核心库可以独立 import：`import mtc`，不依赖 CA/Certificate 代码。
 
 ### 3. 公共 API
@@ -227,7 +227,7 @@ recovered = IssuanceLog.load("log.json")
 #### 3.8 错误模型
 
 ```python
-from mtc.common.errors import (
+from mtc.core.errors import (
     InvalidIndex, InvalidTreeSize, InvalidSubtree, InvalidMinimumIndex,
     UnavailableEntry, UnsupportedEntryType, MalformedEntry, EncodingError,
     InvalidProof, InvalidInclusionProof, InvalidConsistencyProof,

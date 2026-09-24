@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterator, List, Sequence, Union
 
-from ..common.errors import DecodeError, EncodingError
+from ..core.errors import DecodeError, EncodingError
 
 BytesLike = Union[bytes, bytearray, memoryview]
 

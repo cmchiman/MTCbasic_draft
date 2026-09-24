@@ -8,7 +8,7 @@ Layers
 ------
 
 ===========================  ==================================================
-``mtc.common``               public types and the error model
+``mtc.core``                 public types and the error model
 ``mtc.encoding``             DER / TLS / X.509 codecs
 ``mtc.merkle``               hashing, subtrees, the append-only tree, proofs
 ``mtc.log``                  the issuance log: entries, storage, publishing
@@ -27,7 +27,7 @@ The frozen interface for the other work packages::
     subtrees = log.cover_interval(start, end)
 """
 
-from .common.errors import (
+from .core.errors import (
     DecodeError,
     EncodingError,
     EntryUnavailable,
@@ -47,7 +47,7 @@ from .common.errors import (
     UnavailableEntry,
     UnsupportedEntryType,
 )
-from .common.types import (
+from .core.types import (
     SUBTREE_SIGNATURE_LABEL,
     Checkpoint,
     ConsistencyProof,

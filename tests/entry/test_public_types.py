@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
-from mtc.common.errors import DecodeError, EncodingError
+from mtc.core.errors import DecodeError, EncodingError
 from mtc.log.log_id import TrustAnchorID
-from mtc.common.types import SUBTREE_SIGNATURE_LABEL, Checkpoint, Cosignature, MTCProof, MTCSignature, Subtree, checkpoint_signature_input, mtc_subtree_encoding, mtc_subtree_signature_input
+from mtc.core.types import SUBTREE_SIGNATURE_LABEL, Checkpoint, Cosignature, MTCProof, MTCSignature, Subtree, checkpoint_signature_input, mtc_subtree_encoding, mtc_subtree_signature_input
 from mtc.encoding.tls import Reader, Writer
 
 LOG_ID = TrustAnchorID.from_arcs("32473.1")

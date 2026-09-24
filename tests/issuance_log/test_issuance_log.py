@@ -8,7 +8,7 @@ import unittest
 
 from mtc.log.issuance_log import IssuanceLog, IssuanceLogCore
 from mtc.log.entry import INDEX_ZERO_ENTRY, MerkleTreeCertEntry, tbs_cert_entry_for
-from mtc.common.errors import (
+from mtc.core.errors import (
     EncodingError,
     InvalidIndex,
     InvalidTreeSize,

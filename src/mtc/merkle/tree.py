@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-from ..common.errors import (
+from ..core.errors import (
     EncodingError,
     InvalidIndex,
     InvalidMinimumIndex,
@@ -40,7 +40,7 @@ from ..common.errors import (
     ProofGenerationError,
     UnavailableEntry,
 )
-from ..common.types import (
+from ..core.types import (
     ConsistencyProof,
     InclusionProof,
     SubtreeConsistencyProof,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from mtc.common.errors import InvalidConsistencyProof, InvalidSubtree, InvalidTreeSize
+from mtc.core.errors import InvalidConsistencyProof, InvalidSubtree, InvalidTreeSize
 from mtc.merkle.tree import MerkleTree
 from mtc.merkle.subtree import is_valid_subtree
 from mtc.merkle.consistency import verify_subtree_consistency_proof, verify_tree_consistency_proof

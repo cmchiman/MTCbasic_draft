@@ -21,7 +21,7 @@ from __future__ import annotations
 import hashlib
 from typing import Union
 
-from ..common.errors import EncodingError
+from ..core.errors import EncodingError
 
 BytesLike = Union[bytes, bytearray, memoryview]
 

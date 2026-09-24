@@ -34,7 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from ..common.errors import InvalidMinimumIndex
+from ..core.errors import InvalidMinimumIndex
 
 
 @dataclass(frozen=True)

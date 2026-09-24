@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from ..common.errors import InvalidMinimumIndex
+from ..core.errors import InvalidMinimumIndex
 from ..merkle.hash import SHA256, HashAlgorithm
 from .log_id import LogID
 

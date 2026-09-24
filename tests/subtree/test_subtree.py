@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from mtc.common.errors import InvalidIndex, InvalidSubtree
+from mtc.core.errors import InvalidIndex, InvalidSubtree
 from mtc.merkle.hash import hash_internal, hash_leaf
 from mtc.merkle.tree import MerkleTree
 from mtc.merkle.subtree import bit_ceil, is_valid_subtree, largest_power_of_two_less_than, validate_subtree

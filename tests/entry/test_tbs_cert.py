@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import unittest
 
 from mtc.encoding import der
-from mtc.common.errors import DecodeError, EncodingError
+from mtc.core.errors import DecodeError, EncodingError
 from mtc.merkle.hash import SHA256, hash_leaf
 from mtc.log.log_id import EXPERIMENTAL_RDNA_TRUST_ANCHOR_ID_OID, TrustAnchorID
 from mtc.encoding.asn1 import VERSION_V1, VERSION_V3, AttributeTypeAndValue, Extension, Name, RelativeDistinguishedName, Validity, distinguished_name, ed25519_spki, rsa_spki

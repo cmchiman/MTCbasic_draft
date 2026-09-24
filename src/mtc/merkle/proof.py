@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import List, Sequence
 
-from ..common.errors import (
+from ..core.errors import (
     EncodingError,
     InvalidInclusionProof,
     InvalidIndex,
@@ -59,7 +59,7 @@ def evaluate_subtree_inclusion_proof(
 
     Returns the expected subtree hash ``MTH(D[start:end])`` computed from
     ``entry_hash`` and the proof nodes, or raises
-    :class:`~mtc.common.errors.InvalidInclusionProof`.
+    :class:`~mtc.core.errors.InvalidInclusionProof`.
     """
     validate_subtree(start, end)
     if not start <= index < end:

@@ -12,7 +12,7 @@ from __future__ import annotations
 import struct
 from typing import Iterable, List, Sequence, Tuple, Union
 
-from ..common.errors import DecodeError, EncodingError
+from ..core.errors import DecodeError, EncodingError
 
 BytesLike = Union[bytes, bytearray, memoryview]
 

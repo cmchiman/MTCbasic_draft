@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
 from . import der
-from ..common.errors import DecodeError, EncodingError
+from ..core.errors import DecodeError, EncodingError
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, keeps the layers acyclic
     from ..log.log_id import LogID

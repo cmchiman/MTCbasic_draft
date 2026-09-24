@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
-from ..common.errors import (
+from ..core.errors import (
     EncodingError,
     InvalidIndex,
     InvalidMinimumIndex,
@@ -34,7 +34,7 @@ from ..common.errors import (
     LogStateError,
     UnsupportedEntryType,
 )
-from ..common.types import (
+from ..core.types import (
     Checkpoint,
     ConsistencyProof,
     InclusionProof,

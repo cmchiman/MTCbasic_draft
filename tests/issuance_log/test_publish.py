@@ -6,8 +6,8 @@ import os
 import tempfile
 import unittest
 
-from mtc.common.errors import InvalidSubtree, UnavailableEntry
-from mtc.common.types import mtc_subtree_signature_input
+from mtc.core.errors import InvalidSubtree, UnavailableEntry
+from mtc.core.types import mtc_subtree_signature_input
 from mtc.log.entry import tbs_cert_entry_for
 from mtc.log.issuance_log import IssuanceLog
 from mtc.log.log_id import TrustAnchorID

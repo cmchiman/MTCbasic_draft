@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence
 
-from ..common.errors import EncodingError, InvalidMinimumIndex, UnavailableEntry
+from ..core.errors import EncodingError, InvalidMinimumIndex, UnavailableEntry
 
 
 class EntryStorage:

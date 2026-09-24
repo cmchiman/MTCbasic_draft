@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import unittest
 
-from mtc.common.errors import InvalidTreeSize
+from mtc.core.errors import InvalidTreeSize
 from mtc.merkle.hash import hash_internal, hash_leaf
 from mtc.merkle.proof import evaluate_subtree_inclusion_proof
 from mtc.merkle.subtree import is_valid_subtree

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from mtc.common.errors import InvalidMinimumIndex, UnavailableEntry
+from mtc.core.errors import InvalidMinimumIndex, UnavailableEntry
 from mtc.encoding.asn1 import Name, Validity, ed25519_spki
 from mtc.log.entry import tbs_cert_entry_for
 from mtc.log.issuance_log import IssuanceLog

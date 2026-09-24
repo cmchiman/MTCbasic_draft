@@ -20,8 +20,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ..common.errors import InvalidSubtree
-from ..common.types import Subtree
+from ..core.errors import InvalidSubtree
+from ..core.types import Subtree
 
 
 # --------------------------------------------------------------------------

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import unittest
 
-from mtc.common.errors import (
+from mtc.core.errors import (
     EncodingError,
     EntryUnavailable,
     InvalidConsistencyProof,

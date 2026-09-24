@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from mtc.log.entry import INDEX_ZERO_ENTRY, NULL_ENTRY, TBS_CERT_ENTRY, MerkleTreeCertEntry, entry_hash, entry_hash_single_pass, tbs_cert_entry_for
-from mtc.common.errors import DecodeError, EncodingError
+from mtc.core.errors import DecodeError, EncodingError
 from mtc.merkle.hash import hash_leaf
 from mtc.log.log_id import TrustAnchorID
 from mtc.encoding.asn1 import Name, Validity, ed25519_spki

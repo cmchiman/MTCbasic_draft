@@ -21,9 +21,9 @@
 | §5.1 | Log Parameters | `log/parameters.py` | `tests/issuance_log/test_issuance_log.py` |
 | §5.2 | Log ID / Trust Anchor ID、实验性 DN | `log/log_id.py`、`encoding/asn1.py`（`Name.log_id`） | `tests/entry/test_tbs_cert.py` |
 | §5.3 / prompt §10-11 | MerkleTreeCertEntry、null_entry、`tbs_cert_entry_data`（DER contents octets） | `log/entry.py` | `tests/entry/test_entry.py`、`tests/entry/test_tbs_cert.py` |
-| §5.4.1 | `MTCSubtree` / `MTCSubtreeSignatureInput` 编码（仅编码，签名属 B） | `common/types.py` | `tests/entry/test_public_types.py` |
+| §5.4.1 | `MTCSubtree` / `MTCSubtreeSignatureInput` 编码（仅编码，签名属 B） | `core/types.py` | `tests/entry/test_public_types.py` |
 | §5.6 / §5.6.1 | Publishing 与 Pruning（minimum index 语义） | `log/publish.py`、`log/pruning.py` | `tests/issuance_log/test_publish.py`、`tests/pruning/test_pruning.py` |
-| §6.1 | `MTCProof` / `MTCSignature` 编码（占位类型，验证属 C） | `common/types.py` | `tests/entry/test_public_types.py` |
+| §6.1 | `MTCProof` / `MTCSignature` 编码（占位类型，验证属 C） | `core/types.py` | `tests/entry/test_public_types.py` |
 | §7.2 | `entry_hash` 与单趟计算 | `log/entry.py`（`entry_hash`、`entry_hash_single_pass`） | `tests/entry/test_entry.py` |
 | prompt §12 | `subjectPublicKeyInfoHash = HASH(DER SubjectPublicKeyInfo)` | `log/entry.py`（`compute_spki_hash`） | `tests/entry/test_tbs_cert.py` |
 | Appendix A | `TBSCertificateLogEntry` ASN.1（DEFINITIONS IMPLICIT TAGS） | `log/entry.py` + `encoding/der.py` + `encoding/asn1.py` | `tests/entry/test_tbs_cert.py`、`tests/entry/test_der.py` |
@@ -32,7 +32,7 @@
 ## 2. 分层与模块职责
 
 ```
-common/    types.py  第一批冻结公共类型（HashValue、MerkleTreeCertEntryType、Subtree、
+core/      types.py  第一批冻结公共类型（HashValue、MerkleTreeCertEntryType、Subtree、
                       InclusionProof/ConsistencyProof/SubtreeInclusionProof/SubtreeConsistencyProof、
                       Checkpoint/MTCProof/MTCSignature/Cosignature 占位、§5.4.1 编码）
            errors.py 统一错误模型（prompt §17）
@@ -54,24 +54,24 @@ log/       parameters.py LogParameters（§5.1）
            pruning.py   minimum index 模型与裁剪不变式（§5.6.1）
 ```
 
-依赖方向单向：`common ← encoding ← merkle ← log`（`common/types.py` 只通过
+依赖方向单向：`core ← encoding ← merkle ← log`（`core/types.py` 只通过
 `TYPE_CHECKING` 引用 log 层类型，运行期不反向依赖）。
 
 ## 3. 第一批冻结公共类型
 
 | 类型 | 位置 | 说明 |
 | --- | --- | --- |
-| `HashValue` | `common/types.py` | `bytes` 子类，binary-safe，可选 `HASH_SIZE` 校验；禁止用 `str` |
-| `MerkleTreeCertEntryType` | `common/types.py` | `NULL_ENTRY=0`、`TBS_CERT_ENTRY=1`，`is_recognized()` |
+| `HashValue` | `core/types.py` | `bytes` 子类，binary-safe，可选 `HASH_SIZE` 校验；禁止用 `str` |
+| `MerkleTreeCertEntryType` | `core/types.py` | `NULL_ENTRY=0`、`TBS_CERT_ENTRY=1`，`is_recognized()` |
 | `MerkleTreeCertEntry` | `log/entry.py` | §5.3 编码；`encode()`/`decode()`；null_entry 恒为 `00 00` |
 | `TBSCertificateLogEntry` | `log/entry.py` | Appendix A ASN.1；`content_octets()` 即 `tbs_cert_entry_data` |
-| `Subtree` | `common/types.py` | `(start, end, hash)`，`is_full` / `level` |
-| `InclusionProof` / `ConsistencyProof` | `common/types.py` | `HashValue` 的 tuple 子类 |
-| `SubtreeInclusionProof` / `SubtreeConsistencyProof` | `common/types.py` | 同上，另带 `index`/`start`/`end`/`tree_size` 元信息 |
+| `Subtree` | `core/types.py` | `(start, end, hash)`，`is_full` / `level` |
+| `InclusionProof` / `ConsistencyProof` | `core/types.py` | `HashValue` 的 tuple 子类 |
+| `SubtreeInclusionProof` / `SubtreeConsistencyProof` | `core/types.py` | 同上，另带 `index`/`start`/`end`/`tree_size` 元信息 |
 | `LogParameters` | `log/parameters.py` | log ID、hash 函数、minimum index |
 | `LogID`（=`TrustAnchorID`） | `log/log_id.py` | §5.2；`from_arcs` / `from_oid_der` / `from_opaque` |
 | `IssuanceLog`（=`IssuanceLogCore`） | `log/issuance_log.py` | A 交付物 |
-| `Checkpoint` / `MTCProof` / `MTCSignature` / `Cosignature` | `common/types.py` | **占位**：只含数据类型与 §5.4.1/§6.1 编码，不含签名/验证/证书逻辑 |
+| `Checkpoint` / `MTCProof` / `MTCSignature` / `Cosignature` | `core/types.py` | **占位**：只含数据类型与 §5.4.1/§6.1 编码，不含签名/验证/证书逻辑 |
 
 `IssuanceLogCore` 是分工文档使用的旧名，保留为 `IssuanceLog` 的别名。
 

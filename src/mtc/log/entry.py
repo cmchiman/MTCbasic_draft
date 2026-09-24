@@ -23,8 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional, Sequence, Union
 
-from ..common.errors import DecodeError, EncodingError, MalformedEntry
-from ..common.types import MerkleTreeCertEntryType
+from ..core.errors import DecodeError, EncodingError, MalformedEntry
+from ..core.types import MerkleTreeCertEntryType
 from ..encoding.asn1 import (
     VERSION_V1,
     VERSION_V3,

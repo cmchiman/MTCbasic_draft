@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import unittest
 
 from mtc.encoding import der
-from mtc.common.errors import DecodeError, EncodingError
+from mtc.core.errors import DecodeError, EncodingError
 
 
 class TestLengthAndTlv(unittest.TestCase):

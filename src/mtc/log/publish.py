@@ -30,12 +30,12 @@ from __future__ import annotations
 import os
 from typing import Iterator, List, Optional, Tuple
 
-from ..common.errors import (
+from ..core.errors import (
     InvalidSubtree,
     ProofGenerationError,
     UnavailableEntry,
 )
-from ..common.types import Checkpoint, Subtree, mtc_subtree_signature_input
+from ..core.types import Checkpoint, Subtree, mtc_subtree_signature_input
 from .issuance_log import IssuanceLog
 from .parameters import LogParameters
 
