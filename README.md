@@ -1,6 +1,72 @@
-# Merkle Tree Certificates — A 模块：Merkle Tree / Subtree / Issuance Log Core
+# MTCbasic_draft
+https://datatracker.ietf.org/doc/html/draft-davidben-tls-merkle-tree-certs-10对此草案实现
+本阶段不实现 Checkpoint/Landmark 同步、Proof Reuse、Bloom/Cuckoo Filter、Outer Landmark Merkle Tree 等；这些要以后统一建立在 Baseline 上
+mtc-python/
+│
+├── src/
+│   └── mtc/
+│       │
+│       ├── core/                  # A/B/C 公共协议对象
+│       │   ├── models.py
+│       │   ├── interfaces.py
+│       │   └── exceptions.py
+│       │
+│       ├── merkle/                # A
+│       ├── log/                   # A
+│       │
+│       ├── ca/                    # B
+│       ├── checkpoint/            # B
+│       ├── cosigner/              # B
+│       │
+│       ├── certificate/           # C
+│       ├── landmark/              # C
+│       ├── verifier/              # C
+│       │
+│       ├── protocol/              # D
+│       │   ├── authenticating_party.py
+│       │   ├── relying_party.py
+│       │   ├── certificate_selector.py
+│       │   ├── trust_anchor.py
+│       │   └── acme.py
+│       │
+│       ├── service/               # D
+│       │   ├── ca_client.py
+│       │   ├── log_client.py
+│       │   ├── cosigner_client.py
+│       │   └── adapters/
+│       │
+│       ├── monitor/               # D
+│       │   ├── monitor.py
+│       │   └── consistency.py
+│       │
+│       ├── experiment/            # D
+│       │   ├── workload.py
+│       │   ├── metrics.py
+│       │   ├── recorder.py
+│       │   └── runner.py
+│       │
+│       └── policy/                # 为以后预留
+│           ├── original.py
+│           └── interfaces.py
+│
+├── tests/
+│   ├── unit/
+│   ├── contract/
+│   ├── integration/
+│   └── e2e/
+│
+├── configs/
+│
+├── scripts/
+│
+├── results/
+│
+└── pyproject.toml
 
-## 1. 协议基线
+
+## Merkle Tree Certificates — A 模块：Merkle Tree / Subtree / Issuance Log Core
+
+### 1. 协议基线
 
 唯一基线：**[draft-davidben-tls-merkle-tree-certs-10](https://datatracker.ietf.org/doc/html/draft-davidben-tls-merkle-tree-certs-10)**
 （Merkle Tree Certificates）。
@@ -12,7 +78,7 @@
   [X.690]（DER）按其语义实现；缺细节的地方不猜，列入
   [`docs/OPEN_SPEC_QUESTIONS.md`](docs/OPEN_SPEC_QUESTIONS.md)（MISSING SPEC 格式）。
 
-## 2. 目录结构
+### 2. 目录结构
 
 ```
 src/mtc/
@@ -30,9 +96,9 @@ tools/        bench_merkle_log.py
 `src/` 下多包了一层 `mtc` 命名空间，避免 `log`、`common`、`merkle` 这类通用包名
 污染 site-packages。核心库可以独立 import：`import mtc`，不依赖 CA/Certificate 代码。
 
-## 3. 公共 API
+### 3. 公共 API
 
-### 3.1 快速上手
+#### 3.1 快速上手
 
 ```python
 from mtc import IssuanceLog, LogID
@@ -57,7 +123,7 @@ proof = log.inclusion_proof(index)         # 该条目对当前 tree size 的包
 assert log.verify_inclusion_proof(index)   # 就地验证
 ```
 
-### 3.2 写入与查询
+#### 3.2 写入与查询
 
 | 方法 | 功能 | 用法 |
 | --- | --- | --- |
@@ -74,7 +140,7 @@ assert log.verify_inclusion_proof(index)   # 就地验证
 | `self_check(deep=False)` | 自检结构不变量；`deep=True` 时按叶哈希重算所有历史根 | `log.self_check(deep=True)` |
 | `stats()` | 返回 tree size、minimum index、存储条目数、内部节点数等指标 | `log.stats()["stored_interior_nodes"]` |
 
-### 3.3 子树与证明
+#### 3.3 子树与证明
 
 | 方法 | 功能 | 用法 |
 | --- | --- | --- |
@@ -92,7 +158,7 @@ assert log.verify_inclusion_proof(index)   # 就地验证
 证明对象是 `HashValue` 的元组子类，可直接 `len(proof)`、遍历、索引；`SubtreeInclusionProof` /
 `SubtreeConsistencyProof` 还额外记录 `index` / `start` / `end` / `tree_size`。
 
-### 3.4 验证
+#### 3.4 验证
 
 两种入口：**便利版**返回布尔值且不抛异常，**严格版**（`check_*`）抛出具体错误类型。
 
@@ -106,7 +172,7 @@ assert log.verify_inclusion_proof(index)   # 就地验证
 | `IssuanceLog.verify_subtree_inclusion(...)` / `verify_subtree_consistency(...)` | 静态子树验证 |
 | `mtc.merkle.proof.check_subtree_inclusion_proof(...)`、`mtc.merkle.consistency.check_subtree_consistency_proof(...)` 等 | 严格版：失败时抛 `InvalidInclusionProof` / `InvalidConsistencyProof`，参数非法时抛 `InvalidIndex` / `InvalidTreeSize` / `InvalidSubtree` / `EncodingError` |
 
-### 3.5 发布与持久化
+#### 3.5 发布与持久化
 
 ```python
 from mtc.log.publish import LogPublisher, FilesystemPublisher
@@ -131,7 +197,7 @@ log.save("log.json")                         # 保存日志状态（条目 + 树
 recovered = IssuanceLog.load("log.json")
 ```
 
-### 3.6 条目构造与哈希
+#### 3.6 条目构造与哈希
 
 | 函数 | 功能 |
 | --- | --- |
@@ -141,7 +207,7 @@ recovered = IssuanceLog.load("log.json")
 | `entry_hash_single_pass(tbs, hash_algorithm=SHA256)` | 不重建完整条目的单趟哈希计算，结果与 `entry_hash` 一致 |
 | `MerkleTreeCertEntry.null()` / `.tbs_cert(tbs)` / `.encode()` / `MerkleTreeCertEntry.decode(data[, length])` | 条目构造与编解码 |
 
-### 3.7 公共类型
+#### 3.7 公共类型
 
 | 类型 | 功能 |
 | --- | --- |
@@ -158,7 +224,7 @@ recovered = IssuanceLog.load("log.json")
 | `IssuanceLog`（=`IssuanceLogCore`） | 日志主体，即上文 API |
 | `Checkpoint` / `MTCProof` / `MTCSignature` / `Cosignature` | 预留占位类型：仅数据类型与编码，无签名与证书逻辑 |
 
-### 3.8 错误模型
+#### 3.8 错误模型
 
 ```python
 from mtc.common.errors import (
@@ -180,7 +246,7 @@ from mtc.common.errors import (
 | `EncodingError` | 编码/解码相关错误（`MalformedEntry` 是其子类） |
 | `InvalidProof` / `InvalidInclusionProof` / `InvalidConsistencyProof` | 证明校验失败（严格版 API） |
 
-### 3.9 剪枝与自检
+#### 3.9 剪枝与自检
 
 ```python
 log.prune(9)                    # 只把 minimum_index 提到 9：tree size、历史根、index 全部不变
@@ -190,7 +256,7 @@ log.revoked_by_index(3)         # -> True
 log.self_check(deep=True)       # 校验结构不变量并重算历史根
 ```
 
-## 4. 构建
+### 4. 构建
 
 ```bash
 # 无需安装即可使用（src 布局）
@@ -206,30 +272,15 @@ python -m pip install -e . --no-build-isolation --no-deps
 运行期无第三方依赖；`cryptography` 仅用于测试中与自研 DER 编码做交叉校验
 （`pip install -e ".[dev]"`）。
 
-## 5. 测试
 
-```bash
-# 全部测试（默认不含大规模，1~5 秒）
-python -m unittest discover -s tests -t .
-
-# 更大规模（显式启用，默认不跑）
-MTC_SCALE=1   python -m unittest tests.issuance_log.test_scale   # 10^3 + 10^4 + 10^5
-MTC_SCALE=max python -m unittest tests.issuance_log.test_scale   # 再加大 3*10^5、10^6
-```
-
-测试目录与提示词一致：`tests/merkle`（哈希、树、规模）、`tests/subtree`（子树合法性、
-§4.5 区间）、`tests/proof`（包含证明、一致性证明、篡改矩阵）、`tests/entry`（entry/TBS
-编码、DER、SPKI、公共类型）、`tests/issuance_log`（日志 API、发布、规模）、
-`tests/pruning`（裁剪不变式）。
-
-## 6. 示例与基准
+### 5. 示例与基准
 
 ```bash
 python examples/issuance_log_demo.py                      # 端到端演示（A 模块内）
 python tools/bench_merkle_log.py --entries 1000 --csv bench.csv
 ```
 
-## 7. 文档
+### 6. 文档
 
 * [`docs/A_IssuanceLogCore.md`](docs/A_IssuanceLogCore.md)：Section→模块映射、
   公共类型、错误模型、裁剪语义、验收对照、A0–A5 阶段状态、给 B/C/D 的接入说明。
