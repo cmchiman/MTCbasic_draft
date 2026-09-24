@@ -1,6 +1,7 @@
 # MTCbasic_draft
 https://datatracker.ietf.org/doc/html/draft-davidben-tls-merkle-tree-certs-10对此草案实现
 本阶段不实现 Checkpoint/Landmark 同步、Proof Reuse、Bloom/Cuckoo Filter、Outer Landmark Merkle Tree 等；这些要以后统一建立在 Baseline 上
+```
 mtc-python/
 │
 ├── src/
@@ -62,7 +63,7 @@ mtc-python/
 ├── results/
 │
 └── pyproject.toml
-
+```
 
 ## Merkle Tree Certificates — A 模块：Merkle Tree / Subtree / Issuance Log Core
 
