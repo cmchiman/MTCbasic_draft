@@ -270,8 +270,9 @@ python -m pip wheel . --no-build-isolation --no-deps -w dist
 python -m pip install -e . --no-build-isolation --no-deps
 ```
 
-运行期无第三方依赖；`cryptography` 仅用于测试中与自研 DER 编码做交叉校验
-（`pip install -e ".[dev]"`）。
+Merkle/日志核心本身只使用标准库。B 的签名层声明了 `cryptography` 和
+`pqcrypto` 运行期依赖，安装项目时会自动安装。开发依赖使用
+`pip install -e ".[dev]"`。
 
 
 ### 5. 示例与基准
@@ -285,4 +286,6 @@ python tools/bench_merkle_log.py --entries 1000 --csv bench.csv
 
 * [`docs/A_IssuanceLogCore.md`](docs/A_IssuanceLogCore.md)：Section→模块映射、
   公共类型、错误模型、裁剪语义、验收对照、A0–A5 阶段状态、给 B/C/D 的接入说明。
+* [`docs/B_CA_CHECKPOINT_COSIGNER.md`](docs/B_CA_CHECKPOINT_COSIGNER.md)：B 模块安装、
+  密钥、CA 签发、Checkpoint、Cosigner、外部签名和持久化使用说明。
 * [`docs/OPEN_SPEC_QUESTIONS.md`](docs/OPEN_SPEC_QUESTIONS.md)：MISSING SPEC 列表。
