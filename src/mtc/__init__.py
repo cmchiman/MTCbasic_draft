@@ -1,8 +1,8 @@
 """Merkle Tree Certificates - work package A (Issuance Log Core).
 
-Only the A module is implemented here; B (CA / Checkpoint / Cosigner),
-C (Certificate / Relying Party) and D (Integration / Monitor) call into it
-through the public API below.
+Work packages A (Issuance Log Core) and B (CA / Checkpoint / Cosigner) are
+implemented here. C (Certificate / Relying Party) and D (Integration /
+Monitor) consume their public APIs.
 
 Layers
 ------
@@ -46,6 +46,15 @@ from .core.errors import (
     ProofVerificationError,
     UnavailableEntry,
     UnsupportedEntryType,
+    ConcurrentStateUpdate,
+    CorruptCosignerState,
+    CosignerCollectionError,
+    CosignerError,
+    InconsistentLogView,
+    InvalidIssuanceRequest,
+    InvalidKeyMaterial,
+    LogContractViolation,
+    NoCurrentCheckpoint,
 )
 from .core.types import (
     SUBTREE_SIGNATURE_LABEL,
@@ -131,8 +140,29 @@ from .merkle.subtree import (
     validate_subtree,
 )
 from .merkle.tree import MerkleTree, mth, subtree_hash_of
+from .ca import CAOrchestrator, IssuanceRequest, LoggedIssuance
+from .checkpoint import (
+    CheckpointBatch,
+    CosignerBatchSignatures,
+    FileCheckpointBatchStore,
+    FileCosignerStateStore,
+    SignedCheckpoint,
+    SignedSubtree,
+)
+from .cosigner import (
+    Cosigner,
+    CosignerCollector,
+    IssuanceLogVerifier,
+    MLDSAPrivateKeySigner,
+    MLDSAPublicKeyVerifier,
+    PrivateKeySigner,
+    PublicKeyVerifier,
+    SignatureAlgorithm,
+    sign_subtree,
+    verify_subtree_cosignature,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "IssuanceLog",
@@ -229,5 +259,33 @@ __all__ = [
     "LogStateError",
     "ProofVerificationError",
     "EntryUnavailable",
+    "InvalidKeyMaterial",
+    "InvalidIssuanceRequest",
+    "LogContractViolation",
+    "CosignerError",
+    "InconsistentLogView",
+    "NoCurrentCheckpoint",
+    "CorruptCosignerState",
+    "ConcurrentStateUpdate",
+    "CosignerCollectionError",
+    "CAOrchestrator",
+    "IssuanceRequest",
+    "LoggedIssuance",
+    "CheckpointBatch",
+    "CosignerBatchSignatures",
+    "FileCheckpointBatchStore",
+    "FileCosignerStateStore",
+    "SignedCheckpoint",
+    "SignedSubtree",
+    "Cosigner",
+    "CosignerCollector",
+    "IssuanceLogVerifier",
+    "PrivateKeySigner",
+    "PublicKeyVerifier",
+    "MLDSAPrivateKeySigner",
+    "MLDSAPublicKeyVerifier",
+    "SignatureAlgorithm",
+    "sign_subtree",
+    "verify_subtree_cosignature",
     "__version__",
 ]

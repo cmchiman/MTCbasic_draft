@@ -116,6 +116,45 @@ class LogStateError(MTCError):
 
 
 # --------------------------------------------------------------------------
+# CA / checkpoint / cosigner
+# --------------------------------------------------------------------------
+class InvalidKeyMaterial(MTCError, ValueError):
+    """Loaded key material does not match its configured algorithm."""
+
+
+class InvalidIssuanceRequest(MTCError, ValueError):
+    """The CA rejected an issuance request before appending it to the log."""
+
+
+class LogContractViolation(MTCError, RuntimeError):
+    """The issuance log returned a value outside the B integration contract."""
+
+
+class CosignerError(MTCError):
+    """Base class for cosigner policy and state failures."""
+
+
+class InconsistentLogView(CosignerError, ValueError):
+    """A candidate checkpoint or subtree conflicts with the trusted log view."""
+
+
+class NoCurrentCheckpoint(CosignerError):
+    """A subtree was submitted before the cosigner trusted a checkpoint."""
+
+
+class CorruptCosignerState(CosignerError):
+    """Persisted cosigner state does not authenticate under the configured key."""
+
+
+class ConcurrentStateUpdate(CosignerError):
+    """The checkpoint changed during an attempted state update."""
+
+
+class CosignerCollectionError(MTCError, RuntimeError):
+    """Too few external cosigners returned complete valid signature sets."""
+
+
+# --------------------------------------------------------------------------
 # historical names (kept so existing call sites stay readable)
 # --------------------------------------------------------------------------
 #: Alias of :class:`InvalidProof`.
@@ -141,6 +180,15 @@ __all__ = [
     "InvalidInclusionProof",
     "InvalidConsistencyProof",
     "LogStateError",
+    "InvalidKeyMaterial",
+    "InvalidIssuanceRequest",
+    "LogContractViolation",
+    "CosignerError",
+    "InconsistentLogView",
+    "NoCurrentCheckpoint",
+    "CorruptCosignerState",
+    "ConcurrentStateUpdate",
+    "CosignerCollectionError",
     "ProofVerificationError",
     "EntryUnavailable",
 ]
