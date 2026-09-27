@@ -289,3 +289,115 @@ python tools/bench_merkle_log.py --entries 1000 --csv bench.csv
 * [`docs/B_CA_CHECKPOINT_COSIGNER.md`](docs/B_CA_CHECKPOINT_COSIGNER.md)：B 模块安装、
   密钥、CA 签发、Checkpoint、Cosigner、外部签名和持久化使用说明。
 * [`docs/OPEN_SPEC_QUESTIONS.md`](docs/OPEN_SPEC_QUESTIONS.md)：MISSING SPEC 列表。
+
+## Merkle Tree Certificates — B 模块：CA / Checkpoint / Cosigner
+
+### 1. 负责范围
+
+B 模块建立在 A 模块提供的 `IssuanceLog`、Merkle Root、Subtree 和 Proof API 上，
+不重复实现 Merkle 树。它负责：
+
+* 校验 CA 签发请求，并把规范的 `tbs_cert_entry` 追加到 A 的日志；
+* 根据日志快照生成 Checkpoint，以及覆盖新增区间的一至两棵 Subtree；
+* 验证 Checkpoint/Subtree 与当前日志的一致性后进行签名；
+* 收集并校验外部 Cosigner 签名，可配置通过阈值；
+* 原子发布 `CheckpointBatch`，并持久化 Cosigner 和已发布批次的公开状态。
+
+主要实现位于：
+
+| 目录 | 功能 |
+| --- | --- |
+| `src/mtc/ca/` | 签发请求校验、日志追加、Checkpoint job 编排 |
+| `src/mtc/checkpoint/` | 已签名 Checkpoint/Subtree 模型及文件持久化 |
+| `src/mtc/cosigner/` | 签名算法、一致性策略、外部 Cosigner 收集 |
+
+### 2. 最小使用示例
+
+```python
+from mtc import (
+    CAOrchestrator,
+    Cosigner,
+    IssuanceLog,
+    IssuanceLogVerifier,
+    Name,
+    PrivateKeySigner,
+    SignatureAlgorithm,
+    TrustAnchorID,
+    Validity,
+    ed25519_spki,
+)
+from mtc.ca import IssuanceRequest
+
+
+class RequestValidator:
+    def validate(self, request: IssuanceRequest) -> None:
+        # 在此加入授权、Subject、有效期、扩展等本地 CA 策略。
+        pass
+
+
+log_id = TrustAnchorID.from_arcs("32473.1")
+ca_id = TrustAnchorID.from_arcs("32473.2")
+log = IssuanceLog.new(log_id)
+signer = PrivateKeySigner.generate(SignatureAlgorithm.ED25519)
+
+ca_cosigner = Cosigner(
+    cosigner_id=ca_id,
+    signer=signer,
+    log_verifier=IssuanceLogVerifier(log),
+)
+ca = CAOrchestrator(
+    log=log,
+    request_validator=RequestValidator(),
+    ca_cosigner=ca_cosigner,
+)
+
+request = IssuanceRequest(
+    spki_der=ed25519_spki(bytes(range(32))),
+    subject=Name.common_name("example.com"),
+    validity=Validity(
+        "2026-01-01T00:00:00+00:00",
+        "2026-04-01T00:00:00+00:00",
+    ),
+)
+issued = ca.submit(request)
+batch = ca.run_checkpoint_job()
+
+print(issued.log_index, issued.tree_size)
+print(batch.signed_checkpoint.checkpoint.tree_size)
+```
+
+`submit()` 先执行部署方提供的 `RequestValidator`，通过后才调用 A 的规范条目构造和
+追加接口。`run_checkpoint_job()` 验证并签署 Checkpoint 及 Subtree；从上次发布后没有
+新增条目时返回 `None`。
+
+### 3. 持久化部署
+
+生产部署应保存签名私钥，并为 Cosigner 状态和发布批次配置文件 store：
+
+```python
+from mtc import FileCheckpointBatchStore, FileCosignerStateStore
+
+ca_cosigner = Cosigner(
+    cosigner_id=ca_id,
+    signer=signer,
+    log_verifier=IssuanceLogVerifier(log),
+    state_store=FileCosignerStateStore("state"),
+)
+ca = CAOrchestrator(
+    log=log,
+    request_validator=RequestValidator(),
+    ca_cosigner=ca_cosigner,
+    batch_store=FileCheckpointBatchStore("state"),
+)
+```
+
+文件 store 只保存公开状态，不保存私钥。经典签名支持 Ed25519、ECDSA P-256/SHA-256
+和 ECDSA P-384/SHA-384；ML-DSA 支持 ML-DSA-44、65 和 87。外部 Cosigner 客户端、
+阈值收集、密钥导入导出和重启恢复示例见
+[`docs/B_CA_CHECKPOINT_COSIGNER.md`](docs/B_CA_CHECKPOINT_COSIGNER.md)。
+
+### 4. 运行 B 模块测试
+
+```bash
+python -m unittest tests.test_b_signing tests.test_b_integration -v
+```
