@@ -401,3 +401,377 @@ ca = CAOrchestrator(
 ```bash
 python -m unittest tests.test_b_signing tests.test_b_integration -v
 ```
+
+
+
+## Merkle Tree Certificates — C 模块：Certificate / Landmark / Relying Party
+
+### 1. 负责范围
+
+唯一协议基线为 **draft-davidben-tls-merkle-tree-certs-10**。
+
+C 模块建立在 A 的日志、编码和 Merkle Proof API，以及 B 的
+CheckpointBatch 和签名验证接口之上，负责：
+
+* MTC X.509 证书和 MTCProof 的编解码；
+* 证书信息与日志条目的双向转换、SPKI 匹配及叶子哈希重建；
+* Full Certificate 与 Signatureless Certificate 构造；
+* Landmark 序列、分配规则、发布文本及子树选择；
+* Trust Anchor、协签策略、撤销索引区间和可信子树管理；
+* Checkpoint 协签与一致性证明校验，以及可信子树更新；
+* 完整证书和无签名证书的统一验证。
+
+C 复用 A 的 Merkle 算法和 B 的密码学验签实现，不重复实现底层算法。
+TLS/ACME 协议交互、网络服务、证书协商及系统实验由 D 接入。
+
+本阶段实现基础 Landmark 分配与可信状态更新，不实现同步优化、
+Proof Reuse、Bloom/Cuckoo Filter、Outer Landmark Merkle Tree 等扩展。
+
+### 2. 目录结构
+
+```text
+src/mtc/
+  certificate/
+    x509_codec.py          # X.509 MTC 证书结构与 DER 编解码
+    proof_codec.py         # 公共 MTCProof 编解码封装与格式检查
+    entry_mapping.py       # 证书与日志条目转换、SPKI/叶子哈希
+    full.py                # 基于 B 的 CheckpointBatch 构造完整证书
+    signatureless.py       # 基于 Landmark 构造无签名证书
+
+  landmark/
+    sequence.py            # Landmark 序列、编号和活动窗口
+    allocation.py          # 按时间区间分配 Landmark
+    publication.py         # Landmark 发布文本序列化与解析
+    subtrees.py            # Landmark 子树区间、选择和根哈希查询
+
+  verifier/
+    trust_anchor.py        # 日志信任配置、协签方公钥及多日志查询
+    cosigner_policy.py     # CA 与外部协签方接受策略
+    revocation.py          # 撤销索引区间管理
+    trusted_subtrees.py    # 可信子树存储和精确区间查询
+    trust_update.py        # 验证证据后更新可信子树
+    inclusion.py           # 调用 A 的包含证明算法
+    signatures.py          # 调用 B 的验签接口并检查协签策略
+    certificate_checks.py  # 有效期、撤销、扩展及应用身份检查接口
+    verify.py              # 统一验证入口
+```
+
+共享的 `Checkpoint`、`Subtree`、`MTCProof`、`MTCSignature`、
+`Cosignature` 等类型继续使用公共模块定义。
+
+### 3. 公共 API
+
+#### 3.1 完整证书构造与验证
+
+下面示例接续 B 的签发流程，假定已经取得：
+
+* A 的 `log`；
+* B 的 `issued`、`request` 和非空 `batch`；
+* CA 与外部 Cosigner 的身份及公开验签密钥。
+
+```python
+from datetime import datetime, timezone
+
+from mtc.certificate.full import build_full_certificate
+from mtc.verifier.cosigner_policy import CosignerPolicy
+from mtc.verifier.trust_anchor import TrustedCosigner, TrustAnchor
+from mtc.verifier.verify import verify_certificate
+
+anchor = TrustAnchor(
+    log_id=log.log_id,
+    hash_algorithm=log.hash_algorithm,
+    cosigners=(
+        TrustedCosigner(
+            ca_id,
+            ca_verifier.algorithm.value,
+            ca_verifier.public_key_der(),
+        ),
+        TrustedCosigner(
+            witness_id,
+            witness_verifier.algorithm.value,
+            witness_verifier.public_key_der(),
+        ),
+    ),
+    policy=CosignerPolicy(
+        ca_ids={ca_id},
+        witness_ids={witness_id},
+        witness_threshold=1,
+    ),
+)
+
+full = build_full_certificate(
+    log,
+    batch,
+    index=issued.log_index,
+    spki_der=request.spki_der,
+    anchor=anchor,
+)
+certificate_der = full.to_der()
+
+result = verify_certificate(
+    certificate_der,
+    anchor,
+    now=datetime(2026, 2, 1, tzinfo=timezone.utc),
+)
+print(result.trust_source)
+print(result.verified_cosigners)
+```
+
+示例使用固定验证时间，需要处于证书有效期内。
+它未配置应用身份检查，不能单独作为 TLS 服务端身份验证示例。
+
+`batch` 必须包含满足 `anchor.policy` 的签名；仅有 CA 签名的批次，
+不能满足上述“CA + 一个外部 Cosigner”的策略。
+
+完整证书构造会检查：
+
+* 日志、Checkpoint 和 Trust Anchor 的身份及哈希算法一致；
+* Checkpoint 和子树根与 A 的日志一致；
+* 证书索引位于批次新增区间，且尚未被裁剪；
+* CA 和外部 Cosigner 的 Checkpoint、所选子树签名有效；
+* 有效协签方集合满足配置策略；
+* 证书公钥与日志中的 SPKI 哈希匹配，包含证明正确。
+
+证书中写入的是所选子树的签名，不使用 Checkpoint 签名替代。
+
+#### 3.2 证书编解码与条目转换
+
+| 接口                                                         | 功能                                    |
+| ------------------------------------------------------------ | --------------------------------------- |
+| `TBSCertificate.from_der(data)` / `.to_der()`                | 解析、输出 TBSCertificate，保留字段 DER |
+| `MTCCertificate(tbs_certificate, proof)`                     | 由 TBS 和公共 MTCProof 组装证书         |
+| `MTCCertificate.from_der(data, hash_algorithm=SHA256)`       | 解析 MTC 证书                           |
+| `MTCCertificate.to_der()`                                    | 输出 X.509 DER                          |
+| `encode_proof(proof, index=None)`                            | 检查并编码 MTCProof                     |
+| `decode_proof(data, hash_algorithm=SHA256, index=None)`      | 解码证明并检查范围、长度及可选索引      |
+| `from_log_entry(entry, *, index, spki_der, log_id, hash_algorithm=SHA256)` | 从日志条目构造 TBS                      |
+| `to_log_entry(tbs, log_id, hash_algorithm=SHA256)`           | 从证书 TBS 重建日志条目                 |
+| `certificate_entry_hash(tbs, log_id, hash_algorithm=SHA256)` | 调用 A 的哈希接口计算重建条目的叶子哈希 |
+
+`serialNumber` 使用日志索引本身，不进行加一转换。
+索引零为 `null_entry`，不能用于证书。
+
+`MTCProof` 以 TLS 编码直接存入证书的 `signatureValue` BIT STRING，
+不额外包裹 ASN.1 OCTET STRING。哈希算法由日志配置提供，
+解析非 SHA-256 证书时必须显式传入。
+
+#### 3.3 Landmark 管理
+
+| 接口                                                         | 功能                                                      |
+| ------------------------------------------------------------ | --------------------------------------------------------- |
+| `LandmarkSequence(base_id, max_landmarks, landmark_url, tree_sizes=(0,))` | 创建完整 Landmark 历史                                    |
+| `sequence.append(tree_size)`                                 | 返回追加后的新序列，要求树大小严格增长                    |
+| `sequence.get(number)` / `.latest` / `.active`               | 查询指定、最新或活动 Landmark                             |
+| `sequence.first_covering(index)`                             | 查找首次覆盖索引的 Landmark；尚未覆盖时返回 `None`        |
+| `sequence.trust_anchor_id(number)`                           | 生成对应 Landmark 的 Trust Anchor ID                      |
+| `recommended_max_landmarks(lifetime, interval)`              | 计算 `ceil(lifetime / interval) + 1`                      |
+| `allocate_landmark(...)`                                     | 根据显式时间、Checkpoint 树大小和历史分配状态决定是否追加 |
+| `serialize_publication(sequence)`                            | 输出 UTF-8 发布文本                                       |
+| `parse_publication(data, *, max_landmarks, latest_tree_size)` | 校验并解析发布文本                                        |
+| `landmark_intervals(sequence, number)`                       | 调用 A 的区间覆盖算法，返回子树区间                       |
+| `landmark_subtrees(sequence, number, log, *, log_id)`        | 查询子树区间及根哈希                                      |
+| `select_landmark_subtree(sequence, index, ...)`              | 选择覆盖证书索引的 Landmark 子树                          |
+
+分配函数每个固定时间区间最多追加一次。调用方需要同时保存返回的
+新序列和 `last_allocation_time`，并在重启后恢复二者。
+
+Landmark 发布文本包含活动窗口及其前驱树大小。
+解析成功只代表格式和边界合法，不代表这些数据已获信任。
+
+#### 3.4 无签名证书构造
+
+```python
+from mtc.certificate.signatureless import build_signatureless_certificate
+
+signatureless = build_signatureless_certificate(
+    log,
+    sequence,
+    index=issued.log_index,
+    spki_der=request.spki_der,
+    log_id=log.log_id,
+    require_active=True,
+)
+
+certificate_der = signatureless.to_der()
+landmark_id = signatureless.selection.trust_anchor_id
+
+assert signatureless.certificate.proof.signatures == ()
+```
+
+默认选择首次覆盖该条目的 Landmark。尚无对应 Landmark 时抛出
+`LandmarkNotReady`，函数不会阻塞等待。
+
+可通过 `landmark_number` 显式选择后续 Landmark，但其实际子树必须覆盖
+目标索引。`require_active=True` 要求所选 Landmark 仍处于活动窗口。
+
+返回值包含证书、Landmark 选择信息和子树根；只有证书部分写入 DER。
+Landmark ID 可交给 D 用于协议协商。
+
+#### 3.5 信任配置与撤销
+
+| 类型或接口                                                   | 功能                                           |
+| ------------------------------------------------------------ | ---------------------------------------------- |
+| `TrustedCosigner(cosigner_id, algorithm, public_key)`        | 保存协签方身份、算法和公开密钥                 |
+| `TrustAnchor(...)`                                           | 聚合某个日志的协签配置、可信子树与撤销状态     |
+| `TrustAnchorStore(anchors=())` / `.get(log_id)`              | 多日志信任锚查询                               |
+| `CosignerPolicy(ca_ids, witness_ids, witness_threshold)`     | 至少一个配置的 CA 身份，加指定数量的其他协签方 |
+| `RevokedRange(start, end)`                                   | 非空半开撤销区间 `[start, end)`                |
+| `RevocationList(log_id, ranges=())`                          | 合并重叠、相邻区间                             |
+| `revocations.contains(index)` / `.revoke(start, end)`        | 查询或返回增加撤销范围后的新对象               |
+| `TrustedSubtreeStore(log_id, hash_algorithm=SHA256, subtrees=())` | 保存可信子树                                   |
+| `store.lookup(start, end)`                                   | 精确匹配区间，不以包含关系替代                 |
+| `anchor.with_signers(cosigners, policy)`                     | 更新签名配置，同时清空待重新认证的可信根       |
+
+协签数量按通过验签的不同身份计算，重复签名不重复计数。
+经典公钥使用完整 SPKI DER；ML-DSA 公钥格式遵循 B 的原始字节接口。
+
+这些状态采用不可变快照；更新时应保留返回的新对象。
+
+#### 3.6 可信子树更新
+
+```python
+from mtc.verifier.trust_update import (
+    CheckpointEvidence,
+    SubtreeEvidence,
+    update_trusted_subtrees,
+)
+
+checkpoint = batch.signed_checkpoint.checkpoint
+
+checkpoint_evidence = [
+    CheckpointEvidence(
+        checkpoint,
+        batch.signed_checkpoint.cosignature,
+    ),
+]
+checkpoint_evidence.extend(
+    CheckpointEvidence(checkpoint, item.checkpoint_cosignature)
+    for item in batch.external_cosignatures
+)
+
+from mtc.landmark.subtrees import landmark_subtrees
+
+roots = {}
+for landmark in sequence.active:
+    for subtree in landmark_subtrees(
+        sequence, landmark.number, log, log_id=log.log_id
+    ):
+        roots[(subtree.start, subtree.end)] = subtree
+
+subtree_evidence = [
+    SubtreeEvidence(
+        subtree,
+        tuple(log.subtree_consistency_proof(
+            subtree.start,
+            subtree.end,
+            checkpoint.tree_size,
+        )),
+    )
+    for subtree in roots.values()
+]
+
+updated = update_trusted_subtrees(
+    anchor,
+    sequence,
+    checkpoint,
+    checkpoint_evidence,
+    subtree_evidence,
+)
+anchor = updated.anchor
+```
+
+上述示例要求参考 Checkpoint 已包含最新 Landmark。
+函数验证足够的 Checkpoint 协签，以及所有活动子树到参考 Checkpoint
+的一致性证明，全部成功后才返回新状态。
+
+协签方也可以签署后续 Checkpoint，此时对应 `CheckpointEvidence`
+需要携带从参考 Checkpoint 到该后续 Checkpoint 的一致性证明。
+
+后续刷新必须传入上次返回的 `previous` 状态，以及必要的
+`previous_consistency_proof`，以检查历史回退或改写。
+首次初始化所用序列的来源、日志绑定和新鲜度由调用方保证。
+
+#### 3.7 统一验证
+
+| 接口                                                   | 功能                                        |
+| ------------------------------------------------------ | ------------------------------------------- |
+| `evaluate_certificate_inclusion(certificate, anchor)`  | 重建条目并计算证明对应的子树根              |
+| `check_trusted_subtree(certificate, anchor)`           | 检查精确区间及可信根                        |
+| `verified_cosigner_ids(signatures, subtree, anchor)`   | 返回通过 B 验签的不同协签方身份             |
+| `check_cosignatures(signatures, subtree, anchor)`      | 进一步要求满足协签策略                      |
+| `check_certificate(certificate, anchor, *, now, ...)`  | 常规结构、有效期、撤销和配置的扩展/身份检查 |
+| `verify_certificate(certificate, anchor, *, now, ...)` | 串联常规检查、包含证明和信任判断            |
+| `is_valid_certificate(certificate, anchor, **options)` | 布尔便利入口                                |
+
+`verify_certificate()` 返回 `VerificationResult`，包含：
+
+* `certificate`：解析后的证书；
+* `subtree`：计算出的子树及根哈希；
+* `trust_source`：`trusted_subtree` 或 `cosignatures`；
+* `verified_cosigners`：签名路径实际验证通过的身份集合。
+
+验证顺序为：
+
+1. 检查结构、日志身份、有效期、撤销及配置的扩展和应用身份；
+2. 重建日志条目，验证包含证明并计算子树根；
+3. 若精确匹配已配置的可信子树，要求根哈希一致；
+4. 否则验证证书携带的协签，并要求满足策略。
+
+可信子树根冲突时直接失败，不回退到签名路径。
+无签名证书没有匹配的可信子树时验证失败。
+
+严格入口失败时抛异常。布尔入口仅将 `MTCError` 转为 `False`，
+不会隐藏应用回调中的编程错误。
+
+### 4. 错误模型
+
+C 复用公共错误，并增加对应业务错误：
+
+| 错误                                            | 场景                               |
+| ----------------------------------------------- | ---------------------------------- |
+| `EncodingError` / `DecodeError`                 | 配置、DER、TLS 或字段格式错误      |
+| `InvalidIndex` / `InvalidTreeSize`              | 索引或日志规模不符合要求           |
+| `UnavailableEntry`                              | 构造证书所需条目已不在日志发布范围 |
+| `LandmarkNotReady`                              | 尚未分配覆盖该条目的 Landmark      |
+| `InvalidInclusionProof`                         | 包含证明或可信子树根不匹配         |
+| `InvalidConsistencyProof`                       | Checkpoint/子树一致性证明失败      |
+| `InsufficientCosignatures`                      | 有效协签身份不满足策略             |
+| `CertificateExpired` / `CertificateNotYetValid` | 当前时间不在有效期内               |
+| `CertificateRevoked`                            | 证书索引命中撤销区间               |
+| `UnsupportedCriticalExtension`                  | 关键扩展没有对应处理器             |
+| `CertificateCheckError`                         | 其他常规证书检查失败               |
+| `LogStateError` / `LogContractViolation`        | 信任状态冲突、历史回退或批次不一致 |
+
+### 5. 接入边界
+
+* `now` 必须为带时区的时间；有效期起止端点均包含在内。
+* 未识别的关键扩展默认拒绝。扩展处理器必须处理实际语义，
+  不能只把 OID 加入白名单。
+* 应用身份检查需要同时传入 `expected_identity` 和
+  `identity_checker`；未提供时不执行域名或应用身份匹配。
+* KU/EKU、名称约束等语义需要配置处理器或外围 X.509 验证器。
+  当前接口不能替代完整 TLS/X.509 路径验证。
+* 可信状态的网络获取、持久化和并发提交由调用方负责；
+  解析 Landmark 文本不会自动建立信任。
+* C 的信任配置与验证逻辑由 D 调用；TLS Trust Anchor 协商、
+  Full/Signatureless 选择和服务接口由 D 实现。
+* Ed25519、ECDSA 及 SHA-256/SHA-512 日志哈希已参与此前集成测试。
+  C 对 ML-DSA 的运行验证尚未完成，不能仅依据接口存在认定通过。
+
+### 6. 运行 C 模块测试
+
+此前实现的 C 测试分别位于：
+
+```text
+tests/certificate/
+tests/landmark/
+tests/verifier/
+```
+
+将这些测试同步到当前仓库后，在项目根目录运行：
+
+```bash
+python -m unittest discover -s tests/certificate -v
+python -m unittest discover -s tests/landmark -v
+python -m unittest discover -s tests/verifier -v
+```
