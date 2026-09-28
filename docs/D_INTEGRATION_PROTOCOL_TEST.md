@@ -64,19 +64,40 @@ python -m venv .venv
 - `IssuanceLog.from_entries()` 的裸 `TBSCertificateLogEntry` 首元素分支引用了不存在的
   `.entries` 模块，已记录为 A 的独立缺陷；D0 使用 `new()` + `ca.submit()`，不修改此分支。
 
-## 下一阶段的 C 边界（尚未实现或冻结具体方法签名）
+## D1：最小 C 边界与 E2E
 
-C 尚无完整 Certificate / Landmark / Verifier API。D1 只需两个适配边界：
+C 尚无完整 Certificate / Landmark / Verifier API。D1 已加入两个最小适配边界：
 
-1. Certificate service：接收已有 `LoggedIssuance`、`CheckpointBatch` 和日志读取能力，
-   返回 C 持有的不透明证书句柄及后续选择所需元数据。
-2. Certificate verifier：接收句柄和 C 的验证上下文，将验证结论交回 Client simulator。
+1. `mtc.service.CertificateService`：接收已有 `LoggedIssuance`、`CheckpointBatch`
+   和 `LogPublisher`，返回 C 持有的不透明 `CertificateArtifact`。
+2. `mtc.service.CertificateVerifier`：接收不透明句柄，将验证结论交回
+   `mtc.protocol.RelyingParty`。
 
-FakeCertificateService / FakeCertificateVerifier 仅放在测试支持目录，用预设结果驱动流程。
+`AuthenticatingParty` 只负责调用 C、保存不透明句柄，并按现有 `TrustAnchorID`
+完成模拟 TLS 的兼容证书路由。`RelyingParty` 暴露其 Trust Anchor ID 列表，先检查
+路由结果，再把证书验证委托给 C。这里没有定义 TLS wire encoding。
+
+FakeCertificateService / FakeCertificateVerifier 仅位于 `tests/support/fake_c.py`，
+用不透明 token 和预设结果驱动 `tests/e2e/test_baseline_fake_c.py`。
 Fake 不构造 `MTCProof`、Full/Signatureless 编码，不计算 Landmark，也不实现密码学验证。
 不在 D 建立 Certificate、Landmark、TrustState 的另一套公共模型。
 涉及 Trust Anchor ID 的外部表示时，继续遵循 `docs/OPEN_SPEC_QUESTIONS.md` 的未决项。
 
-后续依次开展 Fake C E2E、TLS/ACME/Monitor、真实 C 接入、统一实验。
+D1 E2E 的调用链为：
+
+`IssuanceRequest -> CAOrchestrator.submit -> LoggedIssuance ->`
+`CAOrchestrator.run_checkpoint_job -> CheckpointBatch ->`
+`AuthenticatingParty -> CertificateService -> opaque artifact ->`
+`RelyingParty -> CertificateVerifier`。
+
+运行 D1：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest tests.e2e.test_baseline_fake_c -v
+```
+
+D1 新增 4 项 E2E 测试；全量回归共运行 297 项，293 项通过，4 项大规模测试跳过。
+
+后续依次开展 Full/Signatureless 选择、TLS/ACME/Monitor、真实 C 接入、统一实验。
 不实现 Checkpoint/Landmark Sync、Proof Reuse、过滤器、Outer Landmark Merkle Tree
 或自定义 Trust-State 压缩。
