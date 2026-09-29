@@ -306,3 +306,51 @@ ACME 下载链为：
 D3 不实现生产 TLS/ACME wire、Monitor、Benchmark、Sync、Proof Reuse 或 Filter，
 也未修改 A/B/C 源码。外部 Trust Anchor ID / certificate properties 编码继续记录在
 `docs/OPEN_SPEC_QUESTIONS.md`，未来 codec 可在不改变这些语义对象的情况下接入。
+
+## D4：Issuance Log Monitor（已完成）
+
+`src/mtc/monitor` 只消费 A/B 的公开边界：
+
+- `PublishedLogView` 是 `LogPublisher` 只读表面的结构协议；Monitor 不读取
+  `IssuanceLog` 的 storage/tree/私有状态。
+- `CosignerView` 携带 B 的 `SignedCheckpoint`、公开签名验证器和 Publisher。
+  Checkpoint 签名调用 B `verify_subtree_cosignature()`；Checkpoint 之间的
+  Proof 调用 A `IssuanceLog.verify_consistency()`。
+- `MonitorPolicy` 对所有受支持 Relying Party `CosignerPolicy` 取 signer ID 并集，
+  每个涉及的 CA/外部 Cosigner 都必须有视图，不仅检查满足阈值的子集。
+- 同一 Cosigner 的前后视图检测 tree-size 回退、同 size 不同 root 和错误
+  consistency proof；所有当前 Cosigner 视图也与确定选出的最新视图比较。
+- 日志内容只从最新视图的 Publisher 读一遍，逐 index 检查可用性并调用 A
+  `MerkleTreeCertEntry.decode()`；不重算 Merkle Root，不复制 Proof 验证。
+- `MonitorEvent` / `MonitorResult` 结构化记录回退、split view、损坏 Proof/root、
+  缺失 Entry/视图、坏签名、越权裁剪和服务不可用，并给出耗时、视图数、
+  Entry 数和内容读取趟数。
+
+### D4 需求到测试的映射
+
+| 需求 | 测试与断言 |
+| --- | --- |
+| 真实 CA + 外部 Cosigner + Publisher，连续 Checkpoint | `test_real_ca_external_cosigner_publisher_and_monitor` |
+| 内容仅读一遍且 Entry 全部可用 | `test_normal_views_check_every_entry_from_one_publisher` |
+| tree-size 回退 / split view | `test_tree_size_rollback_is_detected_across_runs`、`test_same_size_different_roots_are_a_split_view` |
+| 损坏 Consistency Proof / Checkpoint Root | `test_damaged_consistency_proof_is_detected`、`test_checkpoint_root_mismatch_is_detected` |
+| 缺失 Entry / 越权裁剪 / 服务不可用 | `test_missing_entry_is_detected`、`test_unauthorized_pruning_is_detected`、`test_service_unavailability_is_structured` |
+| 所有策略 Cosigner 视图与签名 | `test_every_policy_cosigner_must_have_a_view`、`test_invalid_checkpoint_cosignature_is_detected` |
+
+### D4 运行与结果
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/monitor -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/contract -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
+```
+
+- Monitor：10 项全部通过。
+- D 契约：20 项全部通过。
+- D E2E：31 项全部通过。
+- 完整回归：运行 349 项，345 项通过，4 项大规模测试按默认配置跳过。
+- `python -m pip check`：依赖一致性检查通过。
+
+D4 未实现 Sync、Proof Reuse 或 Filter，也未修改 A/B/C 源码。

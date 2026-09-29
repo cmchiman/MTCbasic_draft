@@ -32,15 +32,15 @@
 | §6.3.3 | Signatureless：首个覆盖 Landmark、空签名、Full 并存 | `certificate/signatureless.py`、`service/real_certificate.py` | `test_d_c_signatureless_contract.py`、`test_baseline_real_c_signatureless.py` | 已完成；提交 `978d712` | C/D |
 | §7.1 | TrustAnchor / TrustAnchorStore | `verifier/trust_anchor.py` | Full/Signatureless E2E | 已完成 | C |
 | §7.2 | 统一验证：DER、撤销、Entry Hash、Proof、可信根/签名 | `verifier/verify.py`、`certificate_checks.py`、`inclusion.py` | Full/Signatureless 正常与破坏性 E2E | 已完成 | C/D |
-| §7.3、§10.2 | CA + 外部 Cosigner 策略；Monitor 检查策略涉及的全部视图 | `verifier/cosigner_policy.py` | Full 阈值、D/C Trust Update 契约 | 部分完成：Monitor 视图联合检查缺失 | C/D |
+| §7.3、§10.2 | CA + 外部 Cosigner 策略；Monitor 检查策略涉及的全部视图 | `verifier/cosigner_policy.py`、`monitor/` | Full 阈值、D/C Trust Update 契约、Monitor 并集视图 | 已完成（Monitor 待提交） | C/D |
 | §7.4 | CheckpointEvidence + SubtreeEvidence 验证后更新 Trusted Subtree | `verifier/trust_update.py`、`service/real_certificate.py` | D/C 契约 3 项、Signatureless E2E | 已完成；提交 `978d712`；Baseline 状态仅内存 | C/D |
 | §7.5 | Index 半开区间撤销 | `verifier/revocation.py` | Signatureless 撤销 E2E | 已完成 | C |
 | §8.1 | Trust Anchor Range 语义与未来 wire codec 分层 | `protocol/certificate_selector.py` | Signatureless 选择 E2E | 已完成：仅语义对象；提交 `0a90a25` | D |
 | §8.1 / 外部 Trust Anchor ID draft | TrustAnchorID wire 二进制 | `log/log_id.py` 只持有不透明字节 | 编码测试 | 规范待定：见 `OPEN_SPEC_QUESTIONS.md` | A/D |
 | §8.2 | Full 用 log ID；Signatureless 用 Landmark ID；兼容时优先 Signatureless | `protocol/certificate_selector.py`、`authenticating_party.py`、`relying_party.py` | provision 顺序、log-only、无共同锚、ID 混淆 | 已完成；提交 `0a90a25` | D |
-| §8 TLS 语义模拟 | ClientHello/CertificateRequest 语义输入、安全失败、DER 委托 C | `protocol/tls.py` | TLS 契约、真实 Full/Signatureless E2E | 已完成（待提交）；wire codec 保留边界 | D |
-| §9 ACME | `Accept: application/pem-certificate-chain-with-properties`、链、Trust Anchor properties、alternate/503 语义 | `protocol/acme.py` | ACME 契约、真实 DER/PEM E2E | 已完成（待提交）；properties wire codec 不猜测 | D |
-| §10.1.3、§10.2、§10.3、§12.2 | Monitor：Entry 一次读取、Root、Consistency、Cosigner split view、可用性/越权裁剪 | 尚无 `src/mtc/monitor` | D0 仅锁定 Publisher 可用性契约 | 未完成 | D（复用 A/B） |
+| §8 TLS 语义模拟 | ClientHello/CertificateRequest 语义输入、安全失败、DER 委托 C | `protocol/tls.py` | TLS 契约、真实 Full/Signatureless E2E | 已完成；提交 `4040586`；wire codec 保留边界 | D |
+| §9 ACME | `Accept: application/pem-certificate-chain-with-properties`、链、Trust Anchor properties、alternate/503 语义 | `protocol/acme.py` | ACME 契约、真实 DER/PEM E2E | 已完成；提交 `4040586`；properties wire codec 不猜测 | D |
+| §10.1.3、§10.2、§10.3、§12.2 | Monitor：Entry 一次读取、Root、Consistency、Cosigner split view、可用性/越权裁剪 | `src/mtc/monitor` | Monitor 10 项 + 真实 A/B E2E | 已完成（待提交） | D（复用 A/B） |
 | §10.4 | Full 与 Signatureless/续期证书并存选择 | `AuthenticatingParty` 可保存多证书 | D2b 选择 E2E | 部分完成：没有续期场景系统测试 | D |
 | §11 | Trust Anchor 广告隐私风险 | 无 wire 实现 | 无 | 规范/部署事项：文档记录，不实现真实传输 | D |
 | §12.1–§12.6 | 真实性、透明性、公钥 Hash、不可抵赖、未知 Entry、DER 非可塑性 | A/B/C 验证链 | A/B 单元测试、D 破坏性 E2E | 部分完成：Monitor 缺失；应用 X.509 路径不在本原型范围 | A/B/C/D |
@@ -50,9 +50,9 @@
 | 基础分工要求 | 当前实现 | 当前测试 | 状态 | 边界 |
 | --- | --- | --- | --- | --- |
 | Authenticating Party / Relying Party | `protocol/authenticating_party.py`、`relying_party.py` | Fake、Full、Signatureless E2E | 已完成；提交 `978d712` / `0a90a25` | D |
-| TLS Trust Anchor ID 语义模拟 | `protocol/tls.py`、`certificate_selector.py` | TLS 契约、真实 C E2E | 已完成（待提交） | D |
-| ACME 下载语义模拟 | `protocol/acme.py` | 200/404/406/503、properties、真实 DER/PEM E2E | 已完成（待提交） | D |
-| MonitorEvent / MonitorResult | 无 | 无 | 未完成 | D |
+| TLS Trust Anchor ID 语义模拟 | `protocol/tls.py`、`certificate_selector.py` | TLS 契约、真实 C E2E | 已完成；提交 `4040586` | D |
+| ACME 下载语义模拟 | `protocol/acme.py` | 200/404/406/503、properties、真实 DER/PEM E2E | 已完成；提交 `4040586` | D |
+| MonitorEvent / MonitorResult | `monitor/models.py`、`monitor/service.py` | 正常、8 类异常、真实 A/B E2E | 已完成（待提交） | D |
 | Workload Generator（显式 seed） | `tools/bench_merkle_log.py` 仅 A 局部基准 | A scale 测试 | 未完成统一工作负载 | D |
 | 统一 Metrics Recorder | 无 | 无 | 未完成 | D |
 | CPU / Wall / allocation / RSS / Disk / Network | 无统一 schema | 无 | 未完成 | D |
@@ -82,17 +82,17 @@
 | D2a 真实 Full | 已完成 | `6f7357d` |
 | 阶段 1：真实 Signatureless / Trusted Update | 已完成 | `978d712` |
 | 阶段 2：确定性证书选择 | 已完成 | `0a90a25` |
-| 阶段 3：TLS/ACME 语义模拟 | 已完成（待提交） | 待创建 |
-| 阶段 4：Monitor | 未完成 | 待创建 |
+| 阶段 3：TLS/ACME 语义模拟 | 已完成 | `4040586` |
+| 阶段 4：Monitor | 已完成（待提交） | 待创建 |
 | 阶段 5：统一实验与 Benchmark | 未完成 | 待创建 |
 | 最终 draft-10 Baseline 验收 | 未完成 | 待创建 |
 
 ## 5. 当前基线
 
 - 审计起点 HEAD：`6f7357d feat(d): integrate real full certificates end to end`。
-- 阶段 3 工作区验收：D 契约 20 项；D E2E 30 项；完整 unittest 338 项，
-  334 通过、4 项规模测试跳过；`pip check` 通过。
-- 当前缺口：Monitor、统一 Workload/Metrics/Recorder/Runner、CLI、结果样例、
+- 阶段 4 工作区验收：Monitor 10 项；D 契约 20 项；D E2E 31 项；
+  完整 unittest 349 项，345 通过、4 项规模测试跳过；`pip check` 通过。
+- 当前缺口：统一 Workload/Metrics/Recorder/Runner、CLI、结果样例、
   策略扩展接口、README 实际目录收口。
 - 明确排除：Checkpoint/Landmark Sync、Proof Reuse、Bloom/Cuckoo/XOR/Fuse Filter、
   Outer Landmark Merkle Tree、自定义 Trust-State 压缩。
