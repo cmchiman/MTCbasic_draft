@@ -70,7 +70,7 @@
 | --- | --- | --- |
 | `CheckpointPolicy` | 只决定何时运行现有 B Checkpoint job | 未完成 |
 | `LandmarkPolicy` | 只决定何时调用 C Landmark 分配 | C 有函数，D 策略接口未完成 |
-| `CertificateSelectionPolicy` | 不改变证书/Proof，仅替换选择偏好 | `SelectionPolicy` 已有，最终统一命名/别名待定 |
+| `CertificateSelectionPolicy` | 不改变证书/Proof，仅替换选择偏好 | 已完成：运行时协议 + Baseline `SelectionPolicy` |
 | `TrustStateProvider` | 向 D 提供经 C 验证的不可变信任状态 | 未完成 |
 | `MembershipFilter` | 未来 Raw/Bloom/Cuckoo/XOR/Fuse 插件边界；Baseline 不实现过滤器 | 未完成接口 |
 | Metrics `strategy` / `filter` | 同一 workload/schema 比较未来优化 | 未完成 |
@@ -80,8 +80,8 @@
 | 阶段 | 验收状态 | 本地提交 |
 | --- | --- | --- |
 | D2a 真实 Full | 已完成 | `6f7357d` |
-| 阶段 1：真实 Signatureless / Trusted Update | 已完成（待拆分提交） | 待创建 |
-| 阶段 2：确定性证书选择 | 已完成（待拆分提交） | 待创建 |
+| 阶段 1：真实 Signatureless / Trusted Update | 已完成 | `978d712` |
+| 阶段 2：确定性证书选择 | 已完成（待提交） | 待创建 |
 | 阶段 3：TLS/ACME 语义模拟 | 未完成 | 待创建 |
 | 阶段 4：Monitor | 未完成 | 待创建 |
 | 阶段 5：统一实验与 Benchmark | 未完成 | 待创建 |
@@ -90,8 +90,8 @@
 ## 5. 当前基线
 
 - 审计 HEAD：`6f7357d feat(d): integrate real full certificates end to end`。
-- D2b 工作区验收：D 契约 8 项；D E2E 27 项；完整 unittest 323 项，
-  319 通过、4 项规模测试跳过；`pip check` 通过。
+- 阶段 2 工作区验收：D 契约 13 项；D E2E 27 项；完整 unittest 328 项，
+  324 通过、4 项规模测试跳过；`pip check` 通过。
 - 当前缺口：TLS/ACME、Monitor、统一 Workload/Metrics/Recorder/Runner、CLI、结果样例、
   策略扩展接口、README 实际目录收口。
 - 明确排除：Checkpoint/Landmark Sync、Proof Reuse、Bloom/Cuckoo/XOR/Fuse Filter、

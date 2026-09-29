@@ -8,7 +8,7 @@ Landmark base IDs and numbers are carried as explicit semantic metadata.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Protocol, runtime_checkable
 
 from ..core.errors import EncodingError
 from ..log.log_id import TrustAnchorID
@@ -91,9 +91,20 @@ class LandmarkCompatibilityRange:
         )
 
 
+@runtime_checkable
+class CertificateSelectionPolicy(Protocol):
+    """Stable extension point for certificate ordering strategies."""
+
+    def kind_rank(self, certificate_kind: str) -> int: ...
+
+    def landmark_rank(
+        self, certificate_kind: str, landmark_number: int
+    ) -> int: ...
+
+
 @dataclass(frozen=True)
 class SelectionPolicy:
-    """Selection preference independent of provisioning order."""
+    """Draft-10 Baseline preference independent of provisioning order."""
 
     prefer_signatureless: bool = True
 
@@ -101,13 +112,30 @@ class SelectionPolicy:
         if not isinstance(self.prefer_signatureless, bool):
             raise EncodingError("prefer_signatureless must be bool")
 
+    def kind_rank(self, certificate_kind: str) -> int:
+        if certificate_kind not in ("full", "signatureless"):
+            raise EncodingError("unsupported certificate kind")
+        signatureless_first = self.prefer_signatureless
+        return int(
+            (certificate_kind == "signatureless") != signatureless_first
+        )
+
+    @staticmethod
+    def landmark_rank(certificate_kind: str, landmark_number: int) -> int:
+        if certificate_kind not in ("full", "signatureless"):
+            raise EncodingError("unsupported certificate kind")
+        _integer(landmark_number, "landmark number")
+        return -landmark_number if certificate_kind == "signatureless" else 0
+
 
 class CertificateSelector:
     """Select a compatible artifact with a stable, content-based ordering."""
 
-    def __init__(self, policy: SelectionPolicy = SelectionPolicy()) -> None:
-        if not isinstance(policy, SelectionPolicy):
-            raise EncodingError("expected SelectionPolicy")
+    def __init__(
+        self, policy: CertificateSelectionPolicy = SelectionPolicy()
+    ) -> None:
+        if not isinstance(policy, CertificateSelectionPolicy):
+            raise EncodingError("expected CertificateSelectionPolicy")
         self._policy = policy
 
     @staticmethod
@@ -180,10 +208,17 @@ class CertificateSelector:
 
     def _rank(self, certificate: CertificateArtifact) -> tuple:
         kind = self._kind(certificate)
-        signatureless_first = self._policy.prefer_signatureless
-        kind_rank = int((kind == "signatureless") != signatureless_first)
-        number = getattr(certificate, "landmark_number", 0)
-        number_rank = -number if kind == "signatureless" else 0
+        number = getattr(certificate, "landmark_number", None)
+        if kind == "full" and number is None:
+            number = 0
+        if (
+            isinstance(number, bool)
+            or not isinstance(number, int)
+            or (kind == "signatureless" and number < 1)
+        ):
+            raise EncodingError("certificate landmark number is invalid")
+        kind_rank = self._policy.kind_rank(kind)
+        number_rank = self._policy.landmark_rank(kind, number)
         routing_id = self._routing_id(certificate)
         verification_id = getattr(certificate, "verification_log_id", routing_id)
         if not isinstance(verification_id, TrustAnchorID):
@@ -215,6 +250,7 @@ class CertificateSelector:
 
 
 __all__ = [
+    "CertificateSelectionPolicy",
     "CertificateSelector",
     "LandmarkCompatibilityRange",
     "LandmarkTrustAnchor",

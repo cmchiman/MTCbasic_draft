@@ -2,6 +2,7 @@
 
 from .authenticating_party import AuthenticatingParty
 from .certificate_selector import (
+    CertificateSelectionPolicy,
     CertificateSelector,
     LandmarkCompatibilityRange,
     LandmarkTrustAnchor,
@@ -11,6 +12,7 @@ from .relying_party import RelyingParty
 
 __all__ = [
     "AuthenticatingParty",
+    "CertificateSelectionPolicy",
     "CertificateSelector",
     "LandmarkCompatibilityRange",
     "LandmarkTrustAnchor",

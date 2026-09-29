@@ -220,10 +220,11 @@ D2b 保留 D2a Full Certificate 与 D1 Fake C 边界，并只在 D 中增加编�
 
 本次验证环境为 Windows、Python 3.11.4：
 
-- D 契约：8 项全部通过，其中 D/C Signatureless 公共接口契约 3 项。
+- D 契约：13 项全部通过，其中 D/C Signatureless 公共接口契约 3 项、
+  Certificate Selection 契约 5 项。
 - D E2E：27 项全部通过，其中 Fake C 4 项、真实 Full 11 项、真实
   Signatureless 12 项。
-- 完整回归：运行 323 项，319 项通过，4 项大规模测试按默认配置跳过。
+- 完整回归：运行 328 项，324 项通过，4 项大规模测试按默认配置跳过。
 - `python -m pip check`：依赖一致性检查通过。
 
 ### 未决问题与 D3 前置条件
