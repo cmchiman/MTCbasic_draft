@@ -354,3 +354,77 @@ D3 不实现生产 TLS/ACME wire、Monitor、Benchmark、Sync、Proof Reuse 或 
 - `python -m pip check`：依赖一致性检查通过。
 
 D4 未实现 Sync、Proof Reuse 或 Filter，也未修改 A/B/C 源码。
+
+## D5：可重复 Baseline 实验与 Benchmark（已完成）
+
+`src/mtc/experiment` 把真实系统链路与统一测量边界组合为一个可直接运行的
+Baseline：
+
+`seeded Request -> CA validation -> A append -> B Checkpoint -> CA/external Cosigner ->`
+`C Full -> C Landmark/Trust Update -> C Signatureless -> D TLS/ACME -> C Verify ->`
+`D Monitor -> MetricsRecorder(CSV + JSON)`。
+
+- `BaselineWorkload` 使用显式 seed 以流式方式生成确定的 Ed25519 SPKI、主题、
+  请求顺序和 `workload_digest`；不在默认测试中物化大规模列表。
+- `BaselineRunner` 使用真实 A/B/C/D API。Full 和 Signatureless 同时保留，
+  TLS 选择 Signatureless，ACME 下载两种真实 DER，Monitor 检查最终 CA/外部
+  Cosigner 视图。
+- 耗时使用 `perf_counter_ns()`，CPU 使用 `process_time_ns()`。Python allocation
+  是 `tracemalloc` peak；RSS 是 OS 进程常驻集快照，两者在 schema 中分列。
+- 证书大小使用 DER，Proof 使用 `MTCProof.to_tls()`，签名大小使用实际签名
+  octets，Disk 使用实际写入的 IssuanceLog JSON，Trusted State 使用明确的实验
+  JSON snapshot，Network 使用 TLS 证书 DER 与 ACME 已定义响应字节。
+- `mtc-baseline-metrics/1` 的 CSV/JSON 使用同一字段顺序，包含
+  implementation/baseline、strategy/filter、seed/规模、Checkpoint/Landmark 参数、
+  Python/平台、单位、完整性 digest 与所有要求指标。
+- `CheckpointPolicy`、`LandmarkPolicy`、已有 `CertificateSelectionPolicy`、
+  `TrustStateProvider` 和 `MembershipFilter` 是后续策略插槽。Baseline 的 filter 是显式
+  `none`，本轮没有实现任何过滤器。`LandmarkPolicy` 只决定调度时点，
+  实际分配仍调用 C `allocate_landmark()`。
+
+### D5 规模与命令
+
+默认快速配置：
+
+```powershell
+.\scripts\run_baseline.ps1
+```
+
+或直接调用 CLI：
+
+```powershell
+.\.venv\Scripts\python.exe -m mtc.experiment.runner --config configs/baseline-fast.json --output-dir results/runs/baseline
+```
+
+`configs/` 提供 10^3、10^4、10^5、3×10^5、10^6 配置。超过 1000 条的运行还必须
+显式给出 `--allow-large`（PowerShell 脚本为 `-AllowLarge`），不进入默认单元测试。
+
+### D5 需求到测试的映射
+
+| 需求 | 测试与断言 |
+| --- | --- |
+| 同 seed 生成同 Entry/顺序/digest | `test_same_seed_repeats_requests_order_and_digest` |
+| 真实 Full/Signatureless、选择、Monitor 与字节指标 | `test_quick_runner_uses_real_full_signatureless_monitor_and_bytes` |
+| 同 seed 的逻辑字段与计数稳定 | `test_same_seed_keeps_logical_result_fields_stable` |
+| CSV / JSON 同 schema | `test_csv_and_json_use_the_same_stable_schema` |
+| 策略扩展边界 | `test_baseline_policies_satisfy_public_extension_protocols`及 D2b selection contract |
+
+### D5 运行与结果
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/experiment -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/contract -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
+```
+
+- Experiment：5 项全部通过；另外实际运行 1000 Entry 配置成功。
+- D 契约：20 项全部通过。
+- D E2E：31 项全部通过。
+- 完整回归：运行 354 项，350 项通过，4 项大规模测试按默认配置跳过。
+- `python -m pip check`：依赖一致性检查通过。
+- 检入的 schema 样例：`results/examples/baseline-fast.csv` 与
+  `results/examples/baseline-fast.json`。
+
+D5 未实现 Sync、Proof Reuse、Filter 或自定义信任状态压缩。

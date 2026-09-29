@@ -1,68 +1,43 @@
 # MTCbasic_draft
-https://datatracker.ietf.org/doc/html/draft-davidben-tls-merkle-tree-certs-10对此草案实现
-本阶段不实现 Checkpoint/Landmark 同步、Proof Reuse、Bloom/Cuckoo Filter、Outer Landmark Merkle Tree 等；这些要以后统一建立在 Baseline 上
+[`draft-davidben-tls-merkle-tree-certs-10`](https://datatracker.ietf.org/doc/html/draft-davidben-tls-merkle-tree-certs-10)
+的研究原型 Baseline。A（Entry/Merkle/Proof）、B（CA/Checkpoint/Cosigner）、
+C（Certificate/Landmark/Verifier）与 D（Protocol/Service/Monitor/Experiment）组成真实端到端链路。
+
+本 Baseline 不实现 Checkpoint/Landmark Sync、Proof Reuse、Bloom/Cuckoo/XOR/Fuse
+Filter、Outer Landmark Merkle Tree 或自定义 Trust-State 压缩。
+
+## 快速 Baseline
+
+在仓库根目录使用项目 `.venv`：
+
+```powershell
+.\scripts\run_baseline.ps1
 ```
-mtc-python/
-│
-├── src/
-│   └── mtc/
-│       │
-│       ├── core/                  # A/B/C 公共协议对象
-│       │   ├── models.py
-│       │   ├── interfaces.py
-│       │   └── exceptions.py
-│       │
-│       ├── merkle/                # A
-│       ├── log/                   # A
-│       │
-│       ├── ca/                    # B
-│       ├── checkpoint/            # B
-│       ├── cosigner/              # B
-│       │
-│       ├── certificate/           # C
-│       ├── landmark/              # C
-│       ├── verifier/              # C
-│       │
-│       ├── protocol/              # D
-│       │   ├── authenticating_party.py
-│       │   ├── relying_party.py
-│       │   ├── certificate_selector.py
-│       │   ├── trust_anchor.py
-│       │   └── acme.py
-│       │
-│       ├── service/               # D
-│       │   ├── ca_client.py
-│       │   ├── log_client.py
-│       │   ├── cosigner_client.py
-│       │   └── adapters/
-│       │
-│       ├── monitor/               # D
-│       │   ├── monitor.py
-│       │   └── consistency.py
-│       │
-│       ├── experiment/            # D
-│       │   ├── workload.py
-│       │   ├── metrics.py
-│       │   ├── recorder.py
-│       │   └── runner.py
-│       │
-│       └── policy/                # 为以后预留
-│           ├── original.py
-│           └── interfaces.py
-│
-├── tests/
-│   ├── unit/
-│   ├── contract/
-│   ├── integration/
-│   └── e2e/
-│
-├── configs/
-│
-├── scripts/
-│
-├── results/
-│
-└── pyproject.toml
+
+该命令运行真实 Request → CA → Issuance Log → CA/外部 Cosigner → Full →
+Landmark/Trusted Subtree → Signatureless → TLS/ACME 选择与验证 → Monitor，
+并写入共用 schema 的 CSV/JSON。默认结果在 `results/runs/baseline/`；
+已检入样例在 `results/examples/`。
+
+显式规模配置为 `configs/baseline-1k.json`、`baseline-10k.json`、
+`baseline-100k.json`、`baseline-300k.json` 和 `baseline-1m.json`。超过 1000 条时：
+
+```powershell
+.\scripts\run_baseline.ps1 -Config configs/baseline-10k.json -AllowLarge
+```
+
+实际目录结构：
+
+```
+src/mtc/
+  core/ encoding/ merkle/ log/          # A
+  ca/ checkpoint/ cosigner/             # B
+  certificate/ landmark/ verifier/      # C
+  protocol/ service/ monitor/ experiment/  # D
+tests/
+  entry/ merkle/ subtree/ proof/ issuance_log/ pruning/
+  contract/ e2e/ monitor/ experiment/
+configs/ scripts/ results/ docs/
 ```
 
 ## Merkle Tree Certificates — A 模块：Merkle Tree / Subtree / Issuance Log Core
@@ -758,20 +733,17 @@ C 复用公共错误，并增加对应业务错误：
 * Ed25519、ECDSA 及 SHA-256/SHA-512 日志哈希已参与此前集成测试。
   C 对 ML-DSA 的运行验证尚未完成，不能仅依据接口存在认定通过。
 
-### 6. 运行 C 模块测试
+### 6. 运行 C/D 公共边界与真实 E2E 测试
 
-此前实现的 C 测试分别位于：
+当前仓库不宣称存在独立的 `tests/certificate`、`tests/landmark` 或
+`tests/verifier` 目录。D 依赖的 C 公开接口由 contract 和真实 E2E 锁定：
 
-```text
-tests/certificate/
-tests/landmark/
-tests/verifier/
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/contract -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
 ```
 
-将这些测试同步到当前仓库后，在项目根目录运行：
-
-```bash
-python -m unittest discover -s tests/certificate -v
-python -m unittest discover -s tests/landmark -v
-python -m unittest discover -s tests/verifier -v
-```
+完整需求追踪见 `docs/D_BASELINE_TRACEABILITY.md`，D 的协议、Monitor 和
+Benchmark 验收见 `docs/D_INTEGRATION_PROTOCOL_TEST.md`。

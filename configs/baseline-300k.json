@@ -1,0 +1,10 @@
+{
+  "entry_count": 300000,
+  "seed": 20260929,
+  "checkpoint_interval": 30000,
+  "landmark_interval": 100000,
+  "landmark_max_landmarks": 3,
+  "validation_iterations": 20,
+  "strategy": "baseline",
+  "membership_filter": "none"
+}

@@ -33,6 +33,7 @@ bench.json
 bench_*.csv
 bench_*.json
 *.log
+results/runs/
 
 # OS noise
 .DS_Store
