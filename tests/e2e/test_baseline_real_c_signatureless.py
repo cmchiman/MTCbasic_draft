@@ -23,7 +23,19 @@ from mtc.landmark.subtrees import LandmarkNotReady
 from mtc.log.issuance_log import IssuanceLog
 from mtc.log.log_id import TrustAnchorID
 from mtc.log.publish import LogPublisher
-from mtc.protocol import AuthenticatingParty, LandmarkTrustAnchor, RelyingParty
+from mtc.protocol import (
+    MTC_CERTIFICATE_CHAIN_MEDIA_TYPE,
+    AcmeCertificateProperties,
+    AcmeCertificateResource,
+    AcmeSemanticClient,
+    AcmeSemanticService,
+    AuthenticatingParty,
+    LandmarkTrustAnchor,
+    RelyingParty,
+    TLSClientCapabilities,
+    TLSNegotiationStatus,
+    TLSSemanticNegotiator,
+)
 from mtc.service import (
     RealCertificateArtifact,
     RealCertificateService,
@@ -416,6 +428,64 @@ class BaselineRealCSignaturelessE2ETests(unittest.TestCase):
         )
 
         self.assertFalse(self._client(verifier, capability).verify(confused))
+
+    def test_tls_semantics_prefer_real_signatureless_and_verify_with_c(self) -> None:
+        pair = self._pair()
+        client = self._client(pair[7], pair[9])
+        result = TLSSemanticNegotiator().negotiate(
+            pair[4], client, TLSClientCapabilities.from_relying_party(client)
+        )
+
+        self.assertEqual(result.status, TLSNegotiationStatus.SELECTED)
+        self.assertIs(result.certificate, pair[6])
+        self.assertTrue(result.verified)
+
+    def test_tls_without_landmark_signal_uses_real_full_certificate(self) -> None:
+        pair = self._pair()
+        client = RelyingParty(
+            trust_anchor_ids=(self.log_id,),
+            certificate_verifier=pair[7],
+        )
+        result = TLSSemanticNegotiator().negotiate(
+            pair[4], client, TLSClientCapabilities.from_relying_party(client)
+        )
+
+        self.assertEqual(result.status, TLSNegotiationStatus.SELECTED)
+        self.assertIs(result.certificate, pair[5])
+        self.assertTrue(result.verified)
+
+    def test_acme_semantics_deliver_real_full_and_signatureless_der(self) -> None:
+        pair = self._pair()
+        full_url = "https://acme.example/cert/full"
+        signatureless_url = "https://acme.example/cert/signatureless"
+        service = AcmeSemanticService(
+            {
+                full_url: AcmeCertificateResource(
+                    full_url, pair[5], alternate_url=signatureless_url
+                ),
+                signatureless_url: AcmeCertificateResource(
+                    signatureless_url, pair[6]
+                ),
+            }
+        )
+        client = AcmeSemanticClient()
+        for url, artifact in (
+            (full_url, pair[5]),
+            (signatureless_url, pair[6]),
+        ):
+            with self.subTest(url=url):
+                response = service.download(
+                    url, accept=MTC_CERTIFICATE_CHAIN_MEDIA_TYPE
+                )
+                expected = AcmeCertificateProperties.from_artifact(artifact)
+                self.assertEqual(
+                    response.certificate_chain_der[0], artifact.certificate_der
+                )
+                self.assertTrue(
+                    client.accepts(
+                        response, expected_properties=expected
+                    )
+                )
 
 
 if __name__ == "__main__":

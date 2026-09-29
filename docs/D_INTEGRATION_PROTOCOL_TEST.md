@@ -242,3 +242,67 @@ D2b 保留 D2a Full Certificate 与 D1 Fake C 边界，并只在 D 中增加编�
 
 D2b 未实现 TLS/ACME、Monitor、Benchmark、Sync、Proof Reuse 或 Filter，也未修改
 A/B/C 源码。
+
+## D3：TLS / ACME 证书协商语义模拟（已完成）
+
+D3 在 D2b 的 `CertificateSelector` 上增加独立的协议语义层，不实现 socket、
+ClientHello/CertificateRequest wire codec，也不猜测外部 Trust Anchor ID 编码：
+
+- `TLSClientCapabilities` 明确区分客户端支持的 log ID 和经 C 验证后广告的
+  `LandmarkTrustAnchor`。`TLSSemanticNegotiator` 先调用 Authenticating Party 的
+  确定性选择入口，再把不透明 DER 交给 Relying Party；后者仍通过 C 的
+  `verify_certificate()` 验证。
+- Full 只由 log ID 路由；Signatureless 只在收到兼容 Landmark 信任信号时路由；
+  两者同时可用时沿用 D2b 规则优先 Signatureless。错误类型、客户端宣称超出本地
+  已验证能力或无共同锚均安全失败，不发送 Signatureless。
+- `AcmeSemanticService` 支持精确的
+  `Accept: application/pem-certificate-chain-with-properties`，返回真实 DER 转成的
+  PEM 链和语义化 Trust Anchor properties；Full properties 使用 log ID，
+  Signatureless properties 同时保存 Landmark 路由 ID、verification log ID 和
+  兼容范围。
+- 可用资源返回 200；未知 URL 返回 404；不支持的 Accept 返回 406；尚未就绪的
+  Signatureless 返回 503 和 `Retry-After`；Full 可携带 alternate Signatureless URL。
+- `network_bytes` 只统计本模拟实际序列化的状态行、已知响应头和 PEM body。
+  尚无规范定义的 properties wire bytes 不计入，避免把推测编码包装成测量结果。
+
+真实 TLS 调用链为：
+
+`RP verified capabilities -> TLS semantic request -> AuthenticatingParty ->`
+`CertificateSelector -> opaque DER -> RelyingParty -> C verify_certificate`。
+
+ACME 下载链为：
+
+`Accept + resource URL -> AcmeSemanticService -> PEM(real DER) + semantic properties ->`
+`AcmeSemanticClient property/body validation`。
+
+### D3 需求到测试的映射
+
+| 需求 | 测试与断言 |
+| --- | --- |
+| Landmark 信号存在时优先真实 Signatureless 并由 C 验证 | `test_tls_semantics_prefer_real_signatureless_and_verify_with_c` |
+| 没有 Landmark 信号时不得发送 Signatureless，回退真实 Full | `test_tls_without_landmark_signal_uses_real_full_certificate` |
+| 错误协商输入安全失败 | `test_malformed_tls_input_fails_without_exception` |
+| ACME 真实 Full / Signatureless DER、PEM 与属性 | `test_acme_semantics_deliver_real_full_and_signatureless_der`、`test_full_acme_response_contains_pem_and_log_properties`、`test_signatureless_acme_properties_carry_landmark_range` |
+| 不支持 Accept、资源缺失、Signatureless 待就绪 | `test_unsupported_accept_is_not_acceptable`、`test_unknown_resource_has_no_certificate`、`test_pending_signatureless_uses_503_and_retry_after` |
+| 缺失、错误或与证书不匹配的 properties 安全失败 | `test_missing_wrong_or_malformed_properties_are_rejected` |
+
+### D3 运行与结果
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest tests.contract.test_d_tls_acme_contract -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/contract -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
+```
+
+- TLS/ACME 契约：7 项全部通过。
+- D 契约：20 项全部通过。
+- D E2E：30 项全部通过，其中 Fake C 4 项、真实 Full 11 项、真实
+  Signatureless/TLS/ACME 15 项。
+- 完整回归：运行 338 项，334 项通过，4 项大规模测试按默认配置跳过。
+- `python -m pip check`：依赖一致性检查通过。
+
+D3 不实现生产 TLS/ACME wire、Monitor、Benchmark、Sync、Proof Reuse 或 Filter，
+也未修改 A/B/C 源码。外部 Trust Anchor ID / certificate properties 编码继续记录在
+`docs/OPEN_SPEC_QUESTIONS.md`，未来 codec 可在不改变这些语义对象的情况下接入。

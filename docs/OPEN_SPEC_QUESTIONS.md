@@ -17,6 +17,13 @@ MISSING SPEC
   其余代码全部按不透明字节处理，因此该假设只影响编码取值，不影响 Merkle/日志逻辑。
   若 B/C 采用其它表示，只需改构造方式。
 
+* Needed by: D 的 TLS / ACME 未来 wire codec。
+* Why: Baseline 已将 Full 的 log ID 和 Signatureless 的 Landmark ID / 兼容范围
+  建模为语义对象，但在上述 Trust Anchor ID 编码未确认前，不能确定产品级
+  ClientHello、CertificateRequest 或 ACME certificate properties 的字节序列。
+  `protocol/tls.py` 和 `protocol/acme.py` 因此只实现 draft-10 选择/下载语义；
+  网络字节指标不计入尚未定义的 properties wire bytes。
+
 ---
 
 其它已知的 draft 内部 TBD（不属于缺失规范，仅记录）：
