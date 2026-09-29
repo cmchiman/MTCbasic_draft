@@ -7,12 +7,13 @@ cryptographic certificate verification.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 from ..ca.orchestrator import LoggedIssuance
 from ..checkpoint.models import CheckpointBatch
 from ..log.log_id import TrustAnchorID
 from ..log.publish import LogPublisher
+from ..landmark.sequence import LandmarkSequence
 
 
 @runtime_checkable
@@ -36,10 +37,30 @@ class CertificateService(Protocol):
 
 
 @runtime_checkable
+class SignaturelessCertificateService(Protocol):
+    """Optional C capability; legacy/Fake Full services need not implement it."""
+
+    def build_signatureless_certificate(
+        self,
+        issuance: LoggedIssuance,
+        landmark_sequence: LandmarkSequence,
+        log_publisher: LogPublisher,
+        *,
+        landmark_number: Optional[int] = None,
+        require_active: bool = True,
+    ) -> CertificateArtifact: ...
+
+
+@runtime_checkable
 class CertificateVerifier(Protocol):
     """C verification entry point used by a relying party."""
 
     def verify(self, certificate: CertificateArtifact) -> bool: ...
 
 
-__all__ = ["CertificateArtifact", "CertificateService", "CertificateVerifier"]
+__all__ = [
+    "CertificateArtifact",
+    "CertificateService",
+    "CertificateVerifier",
+    "SignaturelessCertificateService",
+]

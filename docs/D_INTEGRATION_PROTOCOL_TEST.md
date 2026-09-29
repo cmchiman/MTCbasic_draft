@@ -158,3 +158,86 @@ D2a 不执行应用身份、KU/EKU、名称约束或完整 X.509 路径验证；
 这些语义由回调或外围验证器提供。D2a 也不实现 Signatureless、TLS/ACME、Monitor、
 Benchmark、Sync、Proof Reuse 或 Filter。Trust Anchor ID 的外部二进制表示继续采用
 `docs/OPEN_SPEC_QUESTIONS.md` 中的既有未决项，本阶段没有新增协议猜测。
+
+## D2b：真实 Signatureless、可信子树更新与证书选择（已完成）
+
+D2b 保留 D2a Full Certificate 与 D1 Fake C 边界，并只在 D 中增加编排和语义选择：
+
+- `RealCertificateVerifier.update_trusted_subtrees()` 从现有 B `CheckpointBatch` 和
+  A `LogPublisher` 组织 `CheckpointEvidence`、`SubtreeEvidence`，调用 C 的
+  `update_trusted_subtrees()`；仅在 C 完整验证 Checkpoint 签名阈值、历史一致性和
+  所有活动 Landmark 子树 Proof 后，才原子替换内存中的 `TrustAnchor`。
+- `RealCertificateService.build_signatureless_certificate()` 把 A 日志、C
+  `LandmarkSequence`、索引、SPKI 和 log ID 交给 C 的
+  `build_signatureless_certificate()`。D 只保存 C 返回的不透明 DER 和选择元数据，
+  不构造或暴露 C 的 Proof 模型。
+- `RealCertificateArtifact.routing_trust_anchor_id` 用于协商路由：Full 为 log ID，
+  Signatureless 为 Landmark ID；`verification_log_id` 始终用于查找以 log ID 为键的
+  C `TrustAnchorStore`。D2a 的 `trust_anchor_id` 属性及旧的 Full 构造形式继续兼容。
+- Signatureless 能力是独立的 `SignaturelessCertificateService` 协议；现有
+  `FakeCertificateService` 无需实现它。
+- `CertificateSelector` / `SelectionPolicy` 只处理 §8 的语义能力，不实现 TLS wire。
+  候选按证书种类、Landmark 编号、两个 ID 和不透明 DER 形成稳定顺序，不依赖
+  provisioning 顺序。兼容且已广告的 Landmark 优先 Signatureless；只有 log ID、
+  Landmark 未覆盖/不活动/未建立信任或范围不兼容时回退 Full；无共同锚返回 `None`。
+- `LandmarkTrustAnchor.from_trust_update()` 从 C 的 `TrustUpdateResult` 导出可广告的
+  活动 Landmark 语义能力。一个未经验证而手工声明的路由能力本身不建立可信根，
+  空签名证书仍会被 C 拒绝。
+
+真实调用链为：
+
+`A IssuanceLog -> B CheckpointBatch -> D evidence orchestration ->`
+`C update_trusted_subtrees -> C-verified TrustUpdateResult ->`
+`C build_signatureless_certificate -> opaque DER -> D selection/routing ->`
+`C verify_certificate (trusted_subtree)`。
+
+### 需求到测试的映射
+
+| 需求 | 测试与断言 |
+| --- | --- |
+| 真实 A → B → C Trust Update → C DER → D → C Verify | `test_real_trust_update_signatureless_der_and_verify_flow`；验证更新后的精确子树存在且客户端验证成功 |
+| DER 编解码、空 signatures、可信子树验证 | 同上及契约测试 `test_public_trust_update_builder_and_verifier_compose`；C 返回 `trust_source == "trusted_subtree"` |
+| Full/Signatureless 选择不依赖加入顺序 | `test_signatureless_is_preferred_independent_of_provision_order`；以 Landmark 2 语义能力选择路由为 Landmark 1 的兼容证书 |
+| 只有 log ID、未就绪或不兼容时回退 Full | `test_log_id_only_client_falls_back_to_full`、`test_landmark_not_ready_does_not_displace_existing_full`；未提供已验证 Landmark 能力即不选择 Signatureless |
+| 无共同 Trust Anchor | `test_no_common_trust_anchor_returns_none` |
+| Landmark 不活动且要求 active | `test_inactive_landmark_is_rejected_and_full_remains_available` |
+| 未验证根不能建立信任 | `test_unverified_landmark_advertisement_cannot_establish_trust`；契约测试同时验证缺少 Checkpoint 阈值和损坏子树一致性 Proof 时不返回新状态 |
+| 错误可信子树、损坏 Certificate Proof | `test_wrong_trusted_subtree_is_rejected_by_c`、`test_damaged_signatureless_proof_is_rejected_by_c` |
+| 过期和撤销 index | `test_expired_signatureless_certificate_is_rejected_by_c`、`test_revoked_signatureless_index_is_rejected_by_c` |
+| Landmark 路由 ID / verification log ID 分离 | `test_landmark_routing_id_is_not_a_verification_log_id`；混用后找不到 log-keyed anchor 并失败 |
+| D2a / D1 回归 | 原 11 项真实 Full 与 4 项 Fake C E2E 全部继续通过 |
+
+### 运行与结果
+
+在仓库根目录使用既有项目 `.venv`：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/contract -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
+```
+
+本次验证环境为 Windows、Python 3.11.4：
+
+- D 契约：8 项全部通过，其中 D/C Signatureless 公共接口契约 3 项。
+- D E2E：27 项全部通过，其中 Fake C 4 项、真实 Full 11 项、真实
+  Signatureless 12 项。
+- 完整回归：运行 323 项，319 项通过，4 项大规模测试按默认配置跳过。
+- `python -m pip check`：依赖一致性检查通过。
+
+### 未决问题与 D3 前置条件
+
+- `docs/OPEN_SPEC_QUESTIONS.md` 中 Trust Anchor ID 的 TLS 二进制表示仍未决；D2b
+  只持有不透明 ID 和显式 Landmark `base_id` / number / range，不猜 wire encoding。
+- C 的注释明确要求调用方保证首个 `LandmarkSequence` 的真实性、新鲜度，并持久化
+  `TrustUpdateResult` 以防回滚。D2b 只实现进程内原子状态更新；D3 在接入真实传输前
+  必须明确可信 bootstrap、持久化/恢复和并发更新边界。
+- D3 需要把已验证的本地 Landmark 能力映射到 ClientHello / CertificateRequest 的
+  Trust Anchor 表示，并把对端广告解析回本节的语义对象；该序列化边界必须等待
+  未决外部格式确认。
+- 应用身份、KU/EKU、名称约束和完整 X.509 路径验证仍需通过 C 的现有回调或外围
+  验证器接入，不属于证书路由本身。
+
+D2b 未实现 TLS/ACME、Monitor、Benchmark、Sync、Proof Reuse 或 Filter，也未修改
+A/B/C 源码。
