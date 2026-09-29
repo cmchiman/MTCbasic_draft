@@ -5,19 +5,14 @@
 本表综合 `mtc基础方案分工.pdf`、`分工.pdf`、draft-10 §3–§12、附录 A、
 附录 B，以及仓库当前公共 API。状态会在每个 D 阶段提交前更新。
 
-状态定义：
-
-- **已完成**：实现、负向测试和全量回归均存在。
-- **已完成（待提交）**：工作区实现已验收，但尚未形成独立本地提交。
-- **部分完成**：核心存在，但系统层验收或文档仍缺失。
-- **未完成**：当前没有对应实现。
-- **规范待定**：继续实现 wire 表示会引入规范猜测；必须保持语义/codec 分层。
+状态定义：**已完成**表示实现、负向测试和全量回归均存在；
+**规范待定**表示继续实现 wire 表示会引入规范猜测，因此保持语义/codec 分层。
 
 ## 1. 协议与模块追踪
 
 | Draft-10 / 分工要求 | Baseline 要求 | 当前实现文件 | 当前测试 | 状态 | 边界 |
 | --- | --- | --- | --- | --- | --- |
-| §3 Overview | Request → CA → Log → Cosigner → Certificate → Server → Client → Monitor | `ca/orchestrator.py`、`protocol/`、`service/`、`monitor/`、`experiment/` | D 契约、真实 E2E、快速 Runner | 已完成（Experiment 待提交） | A/B/C/D |
+| §3 Overview | Request → CA → Log → Cosigner → Certificate → Server → Client → Monitor | `ca/orchestrator.py`、`protocol/`、`service/`、`monitor/`、`experiment/` | D 契约、真实 E2E、快速 Runner | 已完成；Experiment 提交 `c51905d` | A/B/C/D |
 | §4.1、§4.2、附录 B.1 | Subtree 定义、合法区间、非 2^k 树 | `merkle/subtree.py`、`merkle/tree.py` | `tests/subtree/test_subtree.py`、`tests/merkle/test_tree.py` | 已完成 | A |
 | §4.3、附录 B.2 | Subtree Inclusion Proof 生成、求值、验证 | `merkle/proof.py`、`merkle/tree.py` | `tests/proof/test_inclusion.py` | 已完成 | A |
 | §4.4、附录 B.3/B.4 | Subtree/Tree Consistency Proof | `merkle/consistency.py`、`merkle/tree.py` | `tests/proof/test_consistency.py` | 已完成 | A |
@@ -28,7 +23,7 @@
 | §5.6、§5.6.1 | 发布、可用性、裁剪不改历史 Root/Index | `log/publish.py`、`log/pruning.py`、`log/storage.py` | `tests/issuance_log/test_publish.py`、`tests/pruning/` | 已完成 | A |
 | §6.1、附录 A | MTC X.509 / MTCProof DER | `certificate/x509_codec.py`、`certificate/proof_codec.py` | 真实 Full/Signatureless DER E2E；D/C 公共接口契约 | 已完成；D 不复制 C | C/D |
 | §6.2 | Full Certificate：批次 Subtree、CA+外部 Cosigner、DER、验证 | `certificate/full.py`、`service/real_certificate.py` | `test_baseline_real_c_full.py` 11 项 | 已完成；提交 `6f7357d` | C/D |
-| §6.3.1、§6.3.2 | Landmark 序列、活动窗口、分配、发布 | `landmark/sequence.py`、`allocation.py`、`publication.py`、`experiment/policies.py` | D/C 契约、真实 E2E、Runner 分配策略 | 已完成（Runner 待提交） | C/D |
+| §6.3.1、§6.3.2 | Landmark 序列、活动窗口、分配、发布 | `landmark/sequence.py`、`allocation.py`、`publication.py`、`experiment/policies.py` | D/C 契约、真实 E2E、Runner 调用 C 分配 | 已完成；Runner 提交 `c51905d` | C/D |
 | §6.3.3 | Signatureless：首个覆盖 Landmark、空签名、Full 并存 | `certificate/signatureless.py`、`service/real_certificate.py` | `test_d_c_signatureless_contract.py`、`test_baseline_real_c_signatureless.py` | 已完成；提交 `978d712` | C/D |
 | §7.1 | TrustAnchor / TrustAnchorStore | `verifier/trust_anchor.py` | Full/Signatureless E2E | 已完成 | C |
 | §7.2 | 统一验证：DER、撤销、Entry Hash、Proof、可信根/签名 | `verifier/verify.py`、`certificate_checks.py`、`inclusion.py` | Full/Signatureless 正常与破坏性 E2E | 已完成 | C/D |
@@ -53,16 +48,16 @@
 | TLS Trust Anchor ID 语义模拟 | `protocol/tls.py`、`certificate_selector.py` | TLS 契约、真实 C E2E | 已完成；提交 `4040586` | D |
 | ACME 下载语义模拟 | `protocol/acme.py` | 200/404/406/503、properties、真实 DER/PEM E2E | 已完成；提交 `4040586` | D |
 | MonitorEvent / MonitorResult | `monitor/models.py`、`monitor/service.py` | 正常、8 类异常、真实 A/B E2E | 已完成；提交 `1624b88` | D |
-| Workload Generator（显式 seed） | `experiment/workload.py` | 重复请求/顺序/digest | 已完成（待提交） | D |
-| 统一 Metrics Recorder | `experiment/metrics.py`、`recorder.py` | schema 契约 | 已完成（待提交） | D |
-| CPU / Wall / allocation / RSS / Disk / Network | `experiment/runner.py` 统一 schema | Experiment 快速 Runner | 已完成（待提交） | D |
-| Full / Signatureless build+verify 指标与真实字节大小 | `experiment/runner.py` | 真实快速 Runner | 已完成（待提交） | D |
-| Validation P50/P95/P99 | `experiment/metrics.py`、`runner.py` | Experiment 快速 Runner | 已完成（待提交） | D |
-| Trusted State、Monitor 时间与异常数 | `experiment/runner.py` | Experiment 快速 Runner | 已完成（待提交） | D |
-| CSV / JSON 同一稳定 schema | `experiment/recorder.py` | CSV/JSON 键集与顺序 | 已完成（待提交） | D |
-| 快速 Baseline CLI | `experiment/runner.py`、`scripts/run_baseline.ps1` | 默认配置实际运行 | 已完成（待提交） | D |
+| Workload Generator（显式 seed） | `experiment/workload.py` | 重复请求/顺序/digest | 已完成；提交 `c51905d` | D |
+| 统一 Metrics Recorder | `experiment/metrics.py`、`recorder.py` | schema 契约 | 已完成；提交 `c51905d` | D |
+| CPU / Wall / allocation / RSS / Disk / Network | `experiment/runner.py` 统一 schema | Experiment 快速 Runner | 已完成；提交 `c51905d` | D |
+| Full / Signatureless build+verify 指标与真实字节大小 | `experiment/runner.py` | 真实快速 Runner | 已完成；提交 `c51905d` | D |
+| Validation P50/P95/P99 | `experiment/metrics.py`、`runner.py` | Experiment 快速 Runner | 已完成；提交 `c51905d` | D |
+| Trusted State、Monitor 时间与异常数 | `experiment/runner.py` | Experiment 快速 Runner | 已完成；提交 `c51905d` | D |
+| CSV / JSON 同一稳定 schema | `experiment/recorder.py` | CSV/JSON 键集与顺序 | 已完成；提交 `c51905d` | D |
+| 快速 Baseline CLI | `experiment/runner.py`、`scripts/run_baseline.ps1` | 默认配置实际运行 | 已完成；提交 `c51905d` | D |
 | 10^3/10^4/10^5/3×10^5/10^6 显式规模 | `configs/baseline-*.json`、CLI `--allow-large` | 10^3 实跑；更大规模默认不运行 | 已完成（配置/显式门控） | A/D |
-| README 与实际目录一致 | 实际 A/B/C/D 目录、测试与 CLI | 命令手工验证 | 已完成（待提交） | D |
+| README 与实际目录一致 | 实际 A/B/C/D 目录、测试与 CLI | 命令手工验证 | 已完成；提交 `c51905d` | D |
 
 ## 3. 后续优化扩展点
 
@@ -84,15 +79,16 @@
 | 阶段 2：确定性证书选择 | 已完成 | `0a90a25` |
 | 阶段 3：TLS/ACME 语义模拟 | 已完成 | `4040586` |
 | 阶段 4：Monitor | 已完成 | `1624b88` |
-| 阶段 5：统一实验与 Benchmark | 已完成（待提交） | 待创建 |
-| 最终 draft-10 Baseline 验收 | 未完成 | 待创建 |
+| 阶段 5：统一实验与 Benchmark | 已完成 | `c51905d` |
+| 最终 draft-10 Baseline 验收 | 已完成 | 最终验收提交 |
 
 ## 5. 当前基线
 
 - 审计起点 HEAD：`6f7357d feat(d): integrate real full certificates end to end`。
-- 阶段 5 工作区验收：Experiment 5 项；Monitor 10 项；D 契约 20 项；
-  D E2E 31 项；完整 unittest 354 项，350 通过、4 项规模测试跳过；
-  `pip check` 通过；10^3 Entry 配置实际运行通过。
-- 当前只剩最终 Baseline 验收测试、追踪状态和提交清理。
+- 最终验收：Experiment 5 项；Monitor 10 项；D 契约 20 项；D E2E 32 项；
+  完整 unittest 355 项，351 通过、4 项规模测试跳过；`pip check` 通过；
+  快速一键 CLI 和 10^3 Entry 配置均实际运行通过。
+- 除 `OPEN_SPEC_QUESTIONS.md` 已记录的外部 Trust Anchor ID / properties wire
+  编码外，Baseline 无未解释的缺口。
 - 明确排除：Checkpoint/Landmark Sync、Proof Reuse、Bloom/Cuckoo/XOR/Fuse Filter、
   Outer Landmark Merkle Tree、自定义 Trust-State 压缩。

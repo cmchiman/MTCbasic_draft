@@ -428,3 +428,25 @@ Baseline：
   `results/examples/baseline-fast.json`。
 
 D5 未实现 Sync、Proof Reuse、Filter 或自定义信任状态压缩。
+
+## 最终 Baseline 验收
+
+`tests/e2e/test_baseline_complete.py` 以一条真实快速工作负载锁定整体产物：
+Request/CA/Log/Checkpoint/Cosigner、Full、Landmark/Trust Update、Signatureless、
+Signatureless 优先选择、Monitor 无异常、真实字节指标以及 CSV/JSON 落盘。
+
+最终验收命令：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests/contract -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/monitor -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/experiment -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
+.\scripts\run_baseline.ps1
+```
+
+最终结果：D 契约 20 项、D E2E 32 项、Monitor 10 项、Experiment 5 项全部
+通过；完整 unittest 运行 355 项，351 项通过，4 项显式大规模测试默认跳过；
+`pip check` 通过；快速 CLI 成功产生 CSV/JSON。
