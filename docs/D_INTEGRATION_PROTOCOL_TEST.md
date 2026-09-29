@@ -1,4 +1,4 @@
-# D0：真实 A/B 集成契约
+# D：集成协议与测试
 
 协议唯一基线：`draft-davidben-tls-merkle-tree-certs-10`。
 初始代码基线：`df86050c1052fc68836ace834001f4eb121ecb80`。
@@ -101,3 +101,60 @@ D1 新增 4 项 E2E 测试；全量回归共运行 297 项，293 项通过，4 �
 后续依次开展 Full/Signatureless 选择、TLS/ACME/Monitor、真实 C 接入、统一实验。
 不实现 Checkpoint/Landmark Sync、Proof Reuse、过滤器、Outer Landmark Merkle Tree
 或自定义 Trust-State 压缩。
+
+## D2a：真实 Full Certificate 端到端集成（已完成）
+
+D2a 只增加 D 对真实 C Full Certificate API 的适配，不改变 A/B/C 的职责：
+
+- `RealCertificateService` 把现有 `LoggedIssuance`、`CheckpointBatch` 和
+  `LogPublisher.core` 交给 C 的 `build_full_certificate()`；D 不生成 Entry、
+  Merkle Root、Proof、证书字段或签名。
+- C 返回的 Full Certificate 通过 C 的 `to_der()` 固化为不透明 DER 字节；
+  正常验证路径把 DER 交回 C 的 `is_valid_certificate()`，因此实际覆盖了
+  Certificate/MTCProof 编码与重新解析，不依赖 C 的进程内对象身份。
+- `RealCertificateArtifact` 只保留 Trust Anchor ID、证书种类和 DER；
+  `AuthenticatingParty` / `RelyingParty` 仍只负责模拟协商、路由和委托验证。
+- 服务端构造与客户端验证分别使用 `TrustAnchorStore`。未知 Trust Anchor
+  在调用 C 构造或验证前失败；已知锚的密码学与证书检查全部由 C 执行。
+
+真实调用链为：
+
+`IssuanceRequest -> CAOrchestrator.submit -> IssuanceLog ->`
+`CAOrchestrator.run_checkpoint_job -> CA + external Cosigner signatures ->`
+`AuthenticatingParty -> RealCertificateService -> C Full Certificate DER ->`
+`RelyingParty -> RealCertificateVerifier -> C verify`。
+
+`tests/e2e/test_baseline_real_c_full.py` 共 11 项，覆盖：
+
+| 场景 | 断言 |
+| --- | --- |
+| 正常 A → B → C → D | Full Certificate 经 DER 编解码，携带 CA 与 Witness 签名并验证成功 |
+| 未知 Trust Anchor | 服务端无锚拒绝构造；客户端声明与验证器配置缺失均拒绝，且不调用 C 验证 |
+| 证书过期 | 使用显式带时区时钟，C 验证返回失败 |
+| SPKI 不匹配 | C 构造器拒绝与日志条目不符的 SPKI；篡改证书 SPKI 后 C 验证失败 |
+| Proof 损坏 | 在非空 Inclusion Proof 的真实批次中变异一个节点，C 验证失败 |
+| 签名损坏 | 变异真实 Full Certificate 中一个 Cosigner 签名，C 验证失败 |
+| Cosigner 阈值不足 | C 构造器拒绝缺少 Witness 的批次；移除证书 Witness 签名后 C 验证失败 |
+
+在仓库根目录使用项目本地虚拟环境运行：
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m unittest tests.contract.test_d_ab_contract -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests/e2e -t . -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -t . -v
+.\.venv\Scripts\python.exe -m pip check
+```
+
+本次验证环境为 Windows、Python 3.11.4：
+
+- D 契约测试：5 项全部通过。
+- D E2E 测试：15 项全部通过，其中真实 C Full Certificate 11 项、Fake C 边界 4 项。
+- 完整回归：运行 308 项，304 项通过，4 项大规模测试按默认配置跳过。
+- `python -m pip check`：依赖一致性检查通过。
+
+D2a 不执行应用身份、KU/EKU、名称约束或完整 X.509 路径验证；C 的公共文档已要求
+这些语义由回调或外围验证器提供。D2a 也不实现 Signatureless、TLS/ACME、Monitor、
+Benchmark、Sync、Proof Reuse 或 Filter。Trust Anchor ID 的外部二进制表示继续采用
+`docs/OPEN_SPEC_QUESTIONS.md` 中的既有未决项，本阶段没有新增协议猜测。
