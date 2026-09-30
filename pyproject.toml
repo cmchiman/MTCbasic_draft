@@ -30,4 +30,4 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["src/mtc"]
+source = ["src/mtc", "src/mtc_opt"]

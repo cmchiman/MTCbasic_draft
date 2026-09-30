@@ -1,0 +1,97 @@
+{
+  "schema": "mtc-schemes/1",
+  "baseline": {
+    "implementation": "mtc",
+    "commit": "88d4ccc",
+    "tag": "baseline-draft10",
+    "note": "draft-10 原版实现，仅作对照；不接受功能修改"
+  },
+  "schemes": [
+    {
+      "name": "Original Full",
+      "implementation": "mtc",
+      "certificate": "full",
+      "trust_state": "none",
+      "proof": "full",
+      "filter": null,
+      "window": null
+    },
+    {
+      "name": "Original Signatureless",
+      "implementation": "mtc",
+      "certificate": "signatureless",
+      "trust_state": "raw",
+      "proof": "full",
+      "filter": null,
+      "window": { "H": 10, "W": null, "S": null }
+    },
+    {
+      "name": "SyncRaw",
+      "implementation": "mtc_opt",
+      "certificate": "signatureless",
+      "trust_state": "raw",
+      "proof": "reuse",
+      "filter": "raw",
+      "window": { "H": 10, "W": 1, "S": 1 }
+    },
+    {
+      "name": "Sync + Bloom",
+      "implementation": "mtc_opt",
+      "certificate": "signatureless",
+      "trust_state": "filter",
+      "proof": "reuse",
+      "filter": "bloom",
+      "window": { "H": 10, "W": 4, "S": 1 },
+      "filter_config": { "target_fpr": 0.01, "bits_per_item": 10, "hash_count": 7 }
+    },
+    {
+      "name": "Sync + Cuckoo",
+      "implementation": "mtc_opt",
+      "certificate": "signatureless",
+      "trust_state": "filter",
+      "proof": "reuse",
+      "filter": "cuckoo",
+      "window": { "H": 10, "W": 4, "S": 1 },
+      "filter_config": {
+        "fingerprint_bits": 16,
+        "bucket_size": 4,
+        "max_kicks": 500,
+        "load_factor": 0.95
+      }
+    },
+    {
+      "name": "Sync + XOR",
+      "implementation": "mtc_opt",
+      "certificate": "signatureless",
+      "trust_state": "filter",
+      "proof": "reuse",
+      "filter": "xor",
+      "window": { "H": 10, "W": 4, "S": 4 },
+      "filter_config": { "fingerprint_bits": 16, "build_attempts": 100 }
+    },
+    {
+      "name": "Sync + Fuse",
+      "implementation": "mtc_opt",
+      "certificate": "signatureless",
+      "trust_state": "filter",
+      "proof": "reuse",
+      "filter": "fuse",
+      "window": { "H": 10, "W": 4, "S": 4 },
+      "filter_config": { "fingerprint_bits": 16, "build_attempts": 100 }
+    }
+  ],
+  "workload": {
+    "sizes": [1000, 10000, 100000, 300000, 1000000],
+    "screen_at": [10000, 100000],
+    "final_at": [300000, 1000000],
+    "seeds": [1, 2, 3],
+    "warmup": 1,
+    "repeat": 3
+  },
+  "results_layout": {
+    "baseline": "results/baseline",
+    "optimized": "results/opt",
+    "raw_samples": "results/raw",
+    "aggregated": "results/aggregated"
+  }
+}
