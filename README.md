@@ -263,6 +263,8 @@ python tools/bench_merkle_log.py --entries 1000 --csv bench.csv
   公共类型、错误模型、裁剪语义、验收对照、A0–A5 阶段状态、给 B/C/D 的接入说明。
 * [`docs/B_CA_CHECKPOINT_COSIGNER.md`](docs/B_CA_CHECKPOINT_COSIGNER.md)：B 模块安装、
   密钥、CA 签发、Checkpoint、Cosigner、外部签名和持久化使用说明。
+* [`docs/B_FILTER_WINDOW.md`](docs/B_FILTER_WINDOW.md)：后续人员 B 的 Bloom、Cuckoo、
+  XOR、Fuse Filter、Landmark 滑动窗口、持久化和微基准说明。
 * [`docs/OPEN_SPEC_QUESTIONS.md`](docs/OPEN_SPEC_QUESTIONS.md)：MISSING SPEC 列表。
 
 ## Merkle Tree Certificates — B 模块：CA / Checkpoint / Cosigner
